@@ -46,7 +46,7 @@ async function sendSms(to, message) {
 
     const data = await res.json();
 
-    if (!res.ok || data.code !== 2000) {
+    if (!res.ok || data.status !== 'success') {
       console.error('mNotify send failed:', JSON.stringify(data));
       return false;
     }

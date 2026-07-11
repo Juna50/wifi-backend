@@ -169,6 +169,27 @@ router.get('/pending', async (req, res) => {
   }
 });
 
+// --- 6b. Router polling script: claim ONE order at a time ----------------
+// RouterOS scripting can't easily walk a JSON array, so this atomically
+// hands back a single pending order (flat fields, easy to string-parse)
+// and immediately marks it dispatched so a second poll never double-claims
+// the same order. If two people place orders in the same poll interval,
+// the router just calls this again right after.
+router.post('/orders/claim-next', async (req, res) => {
+  try {
+    const tx = await Transaction.findOneAndUpdate(
+      { status: 'success', dispatched: false },
+      { $set: { dispatched: true, dispatchedAt: new Date() } },
+      { new: true }
+    );
+    if (!tx) return res.json({ found: false });
+    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone });
+  } catch (err) {
+    console.error('POST /orders/claim-next failed:', err.message);
+    res.status(500).json({ found: false });
+  }
+});
+
 // --- 7. Router polling script: report a hotspot user was created ---------
 router.post('/orders/:reference/dispatched', async (req, res) => {
   try {

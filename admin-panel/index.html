@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETGHWiFi Admin</title>
+<style>
+  :root {
+    --blue: #29a8e0; --blue-dark: #1b7fb0; --bg: #0e1116; --card: #161b22;
+    --border: #232a33; --text: #e6edf3; --muted: #8b98a5; --green: #2ecc71; --red: #e0503b;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Segoe UI',Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 20px; color: var(--blue); margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  input, select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0e1116; color:var(--text); font-size:14px; margin-bottom:14px; }
+  button { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color:#fff; border:none; padding:11px 18px; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; }
+  button.secondary { background:#232a33; }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:140px; }
+  .status { font-size:13px; margin-top:8px; min-height:18px; }
+  .status.error { color: var(--red); }
+  .status.ok { color: var(--green); }
+
+  #login-gate { max-width: 360px; margin: 80px auto; text-align:center; }
+  #app { display:none; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; }
+  .badge { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+  .badge.success { background:rgba(46,204,113,0.15); color:var(--green); }
+  .badge.pending { background:rgba(255,255,255,0.08); color:var(--muted); }
+  .badge.failed { background:rgba(224,80,59,0.15); color:var(--red); }
+
+  .voucher-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-top:16px; }
+  .voucher-card { border:1.5px dashed var(--blue); border-radius:10px; padding:12px; text-align:center; background:#0e1116; }
+  .voucher-card .code { font-size:18px; font-weight:800; letter-spacing:1px; color:var(--blue); margin:4px 0; }
+  .voucher-card .pkg { font-size:12px; color:var(--muted); }
+  .voucher-card .brand { font-size:11px; color:var(--muted); margin-top:6px; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { position: absolute; top:0; left:0; width:100%; }
+    .voucher-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .voucher-card { border:1px dashed #000; color:#000; }
+    .voucher-card .code, .voucher-card .pkg, .voucher-card .brand { color:#000; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-gate">
+  <h1>NETGHWiFi Admin</h1>
+  <p class="sub">Enter your admin key</p>
+  <input type="password" id="admin-key-input" placeholder="Admin key">
+  <button onclick="login()">Enter</button>
+  <div id="login-status" class="status error"></div>
+</div>
+
+<div id="app" class="wrap">
+  <h1>NETGHWiFi Admin</h1>
+  <p class="sub">Generate vouchers, print codes, and view recent orders.</p>
+
+  <div class="card">
+    <h2>Generate Vouchers</h2>
+    <div class="row">
+      <div>
+        <label>Package</label>
+        <select id="gen-package">
+          <option value="5 Hours">5 Hours</option>
+          <option value="12 Hours">12 Hours</option>
+          <option value="1 Day Falaaa">1 Day Falaaa</option>
+          <option value="2 Days Turbo Max">2 Days Turbo Max</option>
+          <option value="1Hr Unlimited">1Hr Unlimited</option>
+          <option value="24Hr Unlimited">24Hr Unlimited</option>
+          <option value="test">Test (5 min)</option>
+        </select>
+      </div>
+      <div>
+        <label>Quantity (max 50)</label>
+        <input type="number" id="gen-qty" value="5" min="1" max="50">
+      </div>
+    </div>
+    <button onclick="generateVouchers()" id="gen-btn">Generate</button>
+    <button class="secondary" onclick="window.print()" id="print-btn" style="display:none;margin-left:8px;">Print Vouchers</button>
+    <div id="gen-status" class="status"></div>
+
+    <div id="print-area">
+      <div class="voucher-grid" id="voucher-grid"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Transactions <button class="secondary" onclick="loadTransactions()" style="float:right;padding:4px 10px;font-size:12px;">Refresh</button></h2>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Reference</th><th>Package</th><th>Phone</th><th>Amount</th><th>Status</th><th>Voucher</th><th>SMS</th><th>Expired</th><th>Date</th></tr>
+        </thead>
+        <tbody id="tx-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ==== CONFIG ====
+  const API_BASE = "https://wifi-backend-29n9.onrender.com";
+  // ================
+
+  let adminKey = "";
+
+  function login() {
+    const key = document.getElementById('admin-key-input').value.trim();
+    if (!key) return;
+    adminKey = key;
+    fetch(API_BASE + '/api/admin/transactions?limit=1', { headers: { 'x-admin-key': adminKey } })
+      .then(r => {
+        if (r.status === 401) throw new Error('Wrong admin key');
+        if (!r.ok) throw new Error('Server error');
+        return r.json();
+      })
+      .then(() => {
+        document.getElementById('login-gate').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        loadTransactions();
+      })
+      .catch(err => {
+        document.getElementById('login-status').textContent = err.message;
+      });
+  }
+
+  function statusBadge(status) {
+    return '<span class="badge ' + status + '">' + status + '</span>';
+  }
+
+  function loadTransactions() {
+    fetch(API_BASE + '/api/admin/transactions?limit=50', { headers: { 'x-admin-key': adminKey } })
+      .then(r => r.json())
+      .then(rows => {
+        const body = document.getElementById('tx-body');
+        body.innerHTML = rows.map(tx => `
+          <tr>
+            <td>${tx.reference}</td>
+            <td>${tx.packageId || ''}</td>
+            <td>${tx.phone || ''}</td>
+            <td>GHS ${((tx.amountKobo || 0) / 100).toFixed(2)}</td>
+            <td>${statusBadge(tx.status)}</td>
+            <td>${tx.hotspotUsername || '-'}</td>
+            <td>${tx.smsSent ? 'Sent' : '-'}</td>
+            <td>${tx.expired ? 'Yes' : 'No'}</td>
+            <td>${new Date(tx.createdAt).toLocaleString()}</td>
+          </tr>
+        `).join('');
+      })
+      .catch(() => {});
+  }
+
+  function generateVouchers() {
+    const packageId = document.getElementById('gen-package').value;
+    const quantity = document.getElementById('gen-qty').value;
+    const genBtn = document.getElementById('gen-btn');
+    const statusEl = document.getElementById('gen-status');
+    const grid = document.getElementById('voucher-grid');
+    const printBtn = document.getElementById('print-btn');
+
+    genBtn.disabled = true;
+    printBtn.style.display = 'none';
+    grid.innerHTML = '';
+    statusEl.className = 'status';
+    statusEl.textContent = 'Creating vouchers…';
+
+    fetch(API_BASE + '/api/admin/vouchers/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+      body: JSON.stringify({ packageId, quantity })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.references) {
+        statusEl.className = 'status error';
+        statusEl.textContent = data.message || 'Could not generate vouchers.';
+        genBtn.disabled = false;
+        return;
+      }
+      statusEl.textContent = 'Waiting for router to fulfill ' + data.references.length + ' voucher(s)… (usually under 30s)';
+      pollVouchers(data.references, packageId, genBtn, statusEl, printBtn);
+    })
+    .catch(() => {
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Network error. Please try again.';
+      genBtn.disabled = false;
+    });
+  }
+
+  function pollVouchers(references, packageId, genBtn, statusEl, printBtn) {
+    const results = {};
+    let attempts = 0;
+    const maxAttempts = 40; // ~2 minutes at 3s interval
+
+    const timer = setInterval(() => {
+      attempts++;
+      Promise.all(references.map(ref =>
+        fetch(API_BASE + '/api/orders/' + ref + '/status').then(r => r.json()).then(d => ({ ref, d }))
+      )).then(list => {
+        list.forEach(({ ref, d }) => {
+          if (d.status === 'success' && d.hotspotUsername) results[ref] = d.hotspotUsername;
+        });
+        renderVouchers(results, packageId);
+
+        if (Object.keys(results).length === references.length) {
+          clearInterval(timer);
+          statusEl.className = 'status ok';
+          statusEl.textContent = 'All vouchers ready.';
+          genBtn.disabled = false;
+          printBtn.style.display = 'inline-block';
+          loadTransactions();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(timer);
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Some vouchers are taking longer than usual - check Recent Transactions below, or check the router is online.';
+          genBtn.disabled = false;
+          if (Object.keys(results).length > 0) printBtn.style.display = 'inline-block';
+        }
+      });
+    }, 3000);
+  }
+
+  function renderVouchers(results, packageId) {
+    const grid = document.getElementById('voucher-grid');
+    grid.innerHTML = Object.values(results).map(code => `
+      <div class="voucher-card">
+        <div class="pkg">${packageId}</div>
+        <div class="code">${code}</div>
+        <div class="pkg">Use as Username &amp; Password</div>
+        <div class="brand">NETGHWiFi</div>
+      </div>
+    `).join('');
+  }
+
+  loadTransactions;
+</script>
+</body>
+</html>

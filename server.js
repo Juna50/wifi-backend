@@ -13,12 +13,17 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
 });
 
+const path = require('path');
+
 const app = express();
 app.use(cors()); // fine to leave open - only your router/portal call this API, nothing sensitive is exposed
 app.use(express.json());
 
 const ordersRouter = require('./routes/orders');
+const adminRouter = require('./routes/admin');
 app.use('/api', ordersRouter);
+app.use('/api', adminRouter);
+app.use('/admin', express.static(path.join(__dirname, 'admin-panel')));
 
 app.get('/', (req, res) => res.send('NETGHWiFi backend is running.'));
 app.get('/healthz', (req, res) => res.status(200).json({ ok: true, ts: Date.now() })); // ping this to keep Render awake

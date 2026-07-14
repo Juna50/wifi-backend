@@ -6,6 +6,7 @@ const { sendSms } = require('../sms');
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+<<<<<<< HEAD
 // Adjust to match whatever you're charging - keys MUST exactly match your
 // router's hotspot user profile names (spaces/capitalization included).
 const PACKAGE_PRICES_GHS = {
@@ -28,6 +29,9 @@ const PACKAGE_DURATION_MS = {
   '1Hr Unlimited': 1 * 60 * 60 * 1000,
   '24Hr Unlimited': 24 * 60 * 60 * 1000
 };
+=======
+const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
+>>>>>>> 22aed5d (Updated wifi-backend)
 
 function genRef() {
   return 'ngw_' + crypto.randomBytes(8).toString('hex');
@@ -35,6 +39,7 @@ function genRef() {
 
 async function notifyVoucherReady(tx) {
   if (tx.smsSent) return;
+<<<<<<< HEAD
   const hours = {
     test: '5 minutes',
     '5 Hours': '5 hours',
@@ -44,6 +49,9 @@ async function notifyVoucherReady(tx) {
     '1Hr Unlimited': '1 hour',
     '24Hr Unlimited': '24 hours'
   }[tx.packageId] || '';
+=======
+  const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
+>>>>>>> 22aed5d (Updated wifi-backend)
   const message = `NETGHWiFi\nCode: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nEnjoy!`;
   const sent = await sendSms(tx.phone, message);
   if (sent) {
@@ -251,6 +259,7 @@ router.post('/vouchers/recover', async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (tx && tx.hotspotUsername) {
+<<<<<<< HEAD
       const hours = {
         test: '5 minutes',
         '5 Hours': '5 hours',
@@ -260,6 +269,9 @@ router.post('/vouchers/recover', async (req, res) => {
         '1Hr Unlimited': '1 hour',
         '24Hr Unlimited': '24 hours'
       }[tx.packageId] || '';
+=======
+      const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
+>>>>>>> 22aed5d (Updated wifi-backend)
       const message = `NETGHWiFi\nRecovered Code: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nKeep it safe!`;
       await sendSms(phone, message).catch(err => console.error('recover SMS failed:', err.message));
     }

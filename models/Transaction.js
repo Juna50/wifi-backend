@@ -17,6 +17,11 @@ const transactionSchema = new mongoose.Schema({
 
   smsSent: { type: Boolean, default: false },
 
+  // Calendar expiry (NOT cumulative connected time - a "1Hr Unlimited"
+  // voucher should stop working 1 hour after purchase, whether or not
+  // it was actually used during that window).
+  expired: { type: Boolean, default: false },
+
   createdAt: { type: Date, default: Date.now }
 });
 

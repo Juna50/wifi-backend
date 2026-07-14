@@ -3,35 +3,9 @@ const router = express.Router();
 const crypto = require('crypto');
 const Transaction = require('../models/Transaction');
 const { sendSms } = require('../sms');
+const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-<<<<<<< HEAD
-// Adjust to match whatever you're charging - keys MUST exactly match your
-// router's hotspot user profile names (spaces/capitalization included).
-const PACKAGE_PRICES_GHS = {
-  '5 Hours': 5,
-  '12 Hours': 8,
-  '1 Day Falaaa': 12,
-  '2 Days Turbo Max': 15,
-  '1Hr Unlimited': 3,
-  '24Hr Unlimited': 10
-};
-
-// Calendar validity window in milliseconds - a voucher stops working this
-// long after purchase, regardless of how much it was actually used.
-const PACKAGE_DURATION_MS = {
-  test: 5 * 60 * 1000,
-  '5 Hours': 5 * 60 * 60 * 1000,
-  '12 Hours': 12 * 60 * 60 * 1000,
-  '1 Day Falaaa': 24 * 60 * 60 * 1000,
-  '2 Days Turbo Max': 48 * 60 * 60 * 1000,
-  '1Hr Unlimited': 1 * 60 * 60 * 1000,
-  '24Hr Unlimited': 24 * 60 * 60 * 1000
-};
-=======
-const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
->>>>>>> 22aed5d (Updated wifi-backend)
 
 function genRef() {
   return 'ngw_' + crypto.randomBytes(8).toString('hex');
@@ -39,19 +13,7 @@ function genRef() {
 
 async function notifyVoucherReady(tx) {
   if (tx.smsSent) return;
-<<<<<<< HEAD
-  const hours = {
-    test: '5 minutes',
-    '5 Hours': '5 hours',
-    '12 Hours': '12 hours',
-    '1 Day Falaaa': '1 day',
-    '2 Days Turbo Max': '2 days',
-    '1Hr Unlimited': '1 hour',
-    '24Hr Unlimited': '24 hours'
-  }[tx.packageId] || '';
-=======
   const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
->>>>>>> 22aed5d (Updated wifi-backend)
   const message = `NETGHWiFi\nCode: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nEnjoy!`;
   const sent = await sendSms(tx.phone, message);
   if (sent) {
@@ -100,14 +62,13 @@ router.post('/orders/:reference/confirm', async (req, res) => {
       const verifyData = await verifyRes.json();
 
       if (verifyData?.data?.status === 'success' &&
-        verifyData.data.amount === tx.amountKobo) {
+          verifyData.data.amount === tx.amountKobo) {
         tx.status = 'success';
         await tx.save();
       } else if (verifyData?.data?.status === 'failed') {
         tx.status = 'failed';
         await tx.save();
       }
-      // if still "abandoned"/"pending" on Paystack's side, leave tx.status as pending and let the client keep polling
     } catch (err) {
       console.error('Paystack verify failed:', err.message);
     }
@@ -206,11 +167,6 @@ router.get('/pending', async (req, res) => {
 });
 
 // --- 6b. Router polling script: claim ONE order at a time ----------------
-// RouterOS scripting can't easily walk a JSON array, so this atomically
-// hands back a single pending order (flat fields, easy to string-parse)
-// and immediately marks it dispatched so a second poll never double-claims
-// the same order. If two people place orders in the same poll interval,
-// the router just calls this again right after.
 router.post('/orders/claim-next', async (req, res) => {
   try {
     const tx = await Transaction.findOneAndUpdate(
@@ -259,25 +215,11 @@ router.post('/vouchers/recover', async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (tx && tx.hotspotUsername) {
-<<<<<<< HEAD
-      const hours = {
-        test: '5 minutes',
-        '5 Hours': '5 hours',
-        '12 Hours': '12 hours',
-        '1 Day Falaaa': '1 day',
-        '2 Days Turbo Max': '2 days',
-        '1Hr Unlimited': '1 hour',
-        '24Hr Unlimited': '24 hours'
-      }[tx.packageId] || '';
-=======
       const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
->>>>>>> 22aed5d (Updated wifi-backend)
       const message = `NETGHWiFi\nRecovered Code: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nKeep it safe!`;
       await sendSms(phone, message).catch(err => console.error('recover SMS failed:', err.message));
     }
 
-    // Same response whether or not anything was found - don't let someone
-    // use this to probe which phone numbers have bought vouchers.
     res.json({ message: "If we have a voucher on file for this number, we've just sent it by SMS." });
   } catch (err) {
     console.error('POST /vouchers/recover failed:', err.message);

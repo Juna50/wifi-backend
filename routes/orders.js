@@ -3,9 +3,10 @@ const router = express.Router();
 const crypto = require('crypto');
 const Transaction = require('../models/Transaction');
 const { sendSms } = require('../sms');
-const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
 
 function genRef() {
   return 'ngw_' + crypto.randomBytes(8).toString('hex');
@@ -62,13 +63,14 @@ router.post('/orders/:reference/confirm', async (req, res) => {
       const verifyData = await verifyRes.json();
 
       if (verifyData?.data?.status === 'success' &&
-          verifyData.data.amount === tx.amountKobo) {
+        verifyData.data.amount === tx.amountKobo) {
         tx.status = 'success';
         await tx.save();
       } else if (verifyData?.data?.status === 'failed') {
         tx.status = 'failed';
         await tx.save();
       }
+      // if still "abandoned"/"pending" on Paystack's side, leave tx.status as pending and let the client keep polling
     } catch (err) {
       console.error('Paystack verify failed:', err.message);
     }
@@ -167,6 +169,11 @@ router.get('/pending', async (req, res) => {
 });
 
 // --- 6b. Router polling script: claim ONE order at a time ----------------
+// RouterOS scripting can't easily walk a JSON array, so this atomically
+// hands back a single pending order (flat fields, easy to string-parse)
+// and immediately marks it dispatched so a second poll never double-claims
+// the same order. If two people place orders in the same poll interval,
+// the router just calls this again right after.
 router.post('/orders/claim-next', async (req, res) => {
   try {
     const tx = await Transaction.findOneAndUpdate(
@@ -220,6 +227,8 @@ router.post('/vouchers/recover', async (req, res) => {
       await sendSms(phone, message).catch(err => console.error('recover SMS failed:', err.message));
     }
 
+    // Same response whether or not anything was found - don't let someone
+    // use this to probe which phone numbers have bought vouchers.
     res.json({ message: "If we have a voucher on file for this number, we've just sent it by SMS." });
   } catch (err) {
     console.error('POST /vouchers/recover failed:', err.message);

@@ -10,6 +10,13 @@ const transactionSchema = new mongoose.Schema({
   hotspotUsername: String,
   hotspotPassword: String,
 
+  // 'online' = paid via Paystack, 'cash' = admin-generated voucher (paid
+  // cash in person), 'manual' = a bill created but not yet marked paid.
+  billingType: { type: String, enum: ['online', 'cash', 'manual'], default: 'online' },
+  canceled: { type: Boolean, default: false },
+  note: String,
+  createdBy: String, // admin username, for cash/manual entries
+
   // --- fields for the router polling queue ---
   dispatched: { type: Boolean, default: false },   // router has been handed this once
   dispatchedAt: Date,                              // when it was handed out (for retry timeout)

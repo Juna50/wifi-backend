@@ -59,4 +59,47 @@ async function sendSms(to, message) {
   }
 }
 
-module.exports = { sendSms };
+/**
+ * Sends one SMS to many recipients in a single mNotify call (promotional
+ * blasts). mNotify's recipient array already supports multiple numbers -
+ * this is the same endpoint as sendSms, just with more than one entry.
+ */
+async function sendBulkSms(toList, message) {
+  if (!Array.isArray(toList) || toList.length === 0) {
+    console.warn('sendBulkSms skipped: no recipients provided');
+    return false;
+  }
+  if (!MNOTIFY_API_KEY) {
+    console.error('sendBulkSms skipped: MNOTIFY_API_KEY is not set');
+    return false;
+  }
+
+  try {
+    const res = await fetch(`https://api.mnotify.com/api/sms/quick?key=${MNOTIFY_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: toList.map(toLocalGhana),
+        sender: MNOTIFY_SENDER_ID,
+        message,
+        is_schedule: false,
+        schedule_date: ''
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.status !== 'success') {
+      console.error('mNotify bulk send failed:', JSON.stringify(data));
+      return false;
+    }
+
+    console.log('Bulk SMS sent via mNotify:', JSON.stringify(data));
+    return true;
+  } catch (err) {
+    console.error('Bulk SMS send failed:', err.message);
+    return false;
+  }
+}
+
+module.exports = { sendSms, sendBulkSms };

@@ -6,49 +6,83 @@
 <title>NETGHWiFi Admin</title>
 <style>
   :root {
-    --blue: #29a8e0; --blue-dark: #1b7fb0; --bg: #0e1116; --card: #161b22;
-    --border: #232a33; --text: #e6edf3; --muted: #8b98a5; --green: #2ecc71; --red: #e0503b;
+    --blue:#29a8e0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e0503b; --amber:#e0a53b;
+    --bg:#0e1116; --card:#161b22; --border:#232a33; --text:#e6edf3; --muted:#8b98a5; --input:#0e1116;
+    --sidebar:#0a0d12;
   }
-  * { box-sizing: border-box; }
+  [data-theme="light"] {
+    --bg:#f4f8fb; --card:#ffffff; --border:#dbe6ee; --text:#12232f; --muted:#5c7488; --input:#f3faf8; --sidebar:#0e2a5e;
+  }
+  * { box-sizing:border-box; }
   body { margin:0; font-family:'Segoe UI',Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 60px; }
-  h1 { font-size: 20px; color: var(--blue); margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
-  .card h2 { font-size: 15px; margin: 0 0 14px; }
-  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
-  input, select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0e1116; color:var(--text); font-size:14px; margin-bottom:14px; }
-  button { background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color:#fff; border:none; padding:11px 18px; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; }
-  button.secondary { background:#232a33; }
-  button:disabled { opacity:0.5; cursor:not-allowed; }
-  .row { display:flex; gap:12px; flex-wrap:wrap; }
-  .row > * { flex:1; min-width:140px; }
+  #login-gate { max-width:360px; margin:80px auto; text-align:center; padding:0 16px; }
+  #login-gate h1 { color:var(--blue); font-size:20px; }
+  input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
+  textarea { resize:vertical; min-height:70px; }
+  button { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
+  button.secondary { background:var(--border); color:var(--text); }
+  button.danger { background:var(--red); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
   .status { font-size:13px; margin-top:8px; min-height:18px; }
-  .status.error { color: var(--red); }
-  .status.ok { color: var(--green); }
+  .status.error { color:var(--red); }
+  .status.ok { color:var(--green); }
 
-  #login-gate { max-width: 360px; margin: 80px auto; text-align:center; }
-  #app { display:none; }
+  #shell { display:none; }
+  .layout { display:flex; min-height:100vh; }
+  .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; }
+  .sidebar .brand { color:#fff; font-weight:800; font-size:16px; padding:0 18px 18px; }
+  .nav-item { display:block; width:100%; text-align:left; background:none; border:none; color:rgba(255,255,255,0.75); padding:11px 18px; font-size:13px; font-weight:600; cursor:pointer; border-radius:0; }
+  .nav-item:hover { background:rgba(255,255,255,0.06); }
+  .nav-item.active { background:var(--blue); color:#fff; }
+  .main { flex:1; padding:22px 24px 60px; max-width:1100px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .topbar h1 { font-size:18px; margin:0; }
+  .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; border-radius:50%; cursor:pointer; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; }
+  .card h2 { font-size:15px; margin:0 0 14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .row > * { flex:1; min-width:130px; }
 
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
   th { color:var(--muted); font-weight:600; }
   .badge { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
-  .badge.success { background:rgba(46,204,113,0.15); color:var(--green); }
-  .badge.pending { background:rgba(255,255,255,0.08); color:var(--muted); }
-  .badge.failed { background:rgba(224,80,59,0.15); color:var(--red); }
+  .badge.success { background:rgba(46,204,113,.15); color:var(--green); }
+  .badge.pending { background:rgba(224,165,59,.15); color:var(--amber); }
+  .badge.failed { background:rgba(224,80,59,.15); color:var(--red); }
 
-  .voucher-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-top:16px; }
-  .voucher-card { border:1.5px dashed var(--blue); border-radius:10px; padding:12px; text-align:center; background:#0e1116; }
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat-box { background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .stat-box .num { font-size:22px; font-weight:800; color:var(--blue); }
+  .stat-box .lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .voucher-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-top:16px; }
+  .voucher-card { border:1.5px dashed var(--blue); border-radius:10px; padding:12px; text-align:center; background:var(--input); }
   .voucher-card .code { font-size:18px; font-weight:800; letter-spacing:1px; color:var(--blue); margin:4px 0; }
-  .voucher-card .pkg { font-size:12px; color:var(--muted); }
-  .voucher-card .brand { font-size:11px; color:var(--muted); margin-top:6px; }
+  .voucher-card .pkg, .voucher-card .brand { font-size:11px; color:var(--muted); }
 
+  .checkline { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .checkline input { width:auto; margin:0; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  .pill-tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .pill-tabs button { background:var(--border); color:var(--text); }
+  .pill-tabs button.active { background:var(--blue); color:#fff; }
+  .keybox { background:var(--input); border:1px dashed var(--blue); border-radius:8px; padding:10px; font-family:monospace; font-size:13px; word-break:break-all; }
+
+  @media (max-width:720px) {
+    .layout { flex-direction:column; }
+    .sidebar { width:100%; display:flex; overflow-x:auto; padding:10px; }
+    .sidebar .brand { display:none; }
+    .nav-item { white-space:nowrap; padding:8px 12px; }
+  }
   @media print {
-    body * { visibility: hidden; }
-    #print-area, #print-area * { visibility: visible; }
-    #print-area { position: absolute; top:0; left:0; width:100%; }
-    .voucher-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    body * { visibility:hidden; }
+    #print-area, #print-area * { visibility:visible; }
+    #print-area { position:absolute; top:0; left:0; width:100%; }
+    .voucher-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
     .voucher-card { border:1px dashed #000; color:#000; }
     .voucher-card .code, .voucher-card .pkg, .voucher-card .brand { color:#000; }
   }
@@ -58,194 +92,539 @@
 
 <div id="login-gate">
   <h1>NETGHWiFi Admin</h1>
-  <p class="sub">Enter your admin key</p>
+  <p style="color:var(--muted);font-size:13px;">Enter your admin key</p>
   <input type="password" id="admin-key-input" placeholder="Admin key">
-  <button onclick="login()">Enter</button>
+  <button onclick="login()" style="width:100%;">Enter</button>
   <div id="login-status" class="status error"></div>
 </div>
 
-<div id="app" class="wrap">
-  <h1>NETGHWiFi Admin</h1>
-  <p class="sub">Generate vouchers, print codes, and view recent orders.</p>
-
-  <div class="card">
-    <h2>Generate Vouchers</h2>
-    <div class="row">
-      <div>
-        <label>Package</label>
-        <select id="gen-package">
-          <option value="5 Hours">5 Hours</option>
-          <option value="12 Hours">12 Hours</option>
-          <option value="1 Day Falaaa">1 Day Falaaa</option>
-          <option value="2 Days Turbo Max">2 Days Turbo Max</option>
-          <option value="1Hr Unlimited">1Hr Unlimited</option>
-          <option value="24Hr Unlimited">24Hr Unlimited</option>
-          <option value="test">Test (5 min)</option>
-        </select>
-      </div>
-      <div>
-        <label>Quantity (max 50)</label>
-        <input type="number" id="gen-qty" value="5" min="1" max="50">
-      </div>
+<div id="shell">
+  <div class="layout">
+    <div class="sidebar">
+      <div class="brand">NETGHWiFi</div>
+      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')">Dashboard</button>
+      <button class="nav-item" data-tab="billing" onclick="showTab('billing')">Billing</button>
+      <button class="nav-item" data-tab="payments" onclick="showTab('payments')">Payments</button>
+      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')">Vouchers</button>
+      <button class="nav-item" data-tab="customers" onclick="showTab('customers')">Customers</button>
+      <button class="nav-item" data-tab="sms" onclick="showTab('sms')">SMS</button>
+      <button class="nav-item" data-tab="live" onclick="showTab('live')">Monitoring</button>
+      <button class="nav-item" data-tab="reports" onclick="showTab('reports')">Reports</button>
+      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')">Activity Logs</button>
+      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')">Users</button>
+      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')">Settings</button>
     </div>
-    <button onclick="generateVouchers()" id="gen-btn">Generate</button>
-    <button class="secondary" onclick="window.print()" id="print-btn" style="display:none;margin-left:8px;">Print Vouchers</button>
-    <div id="gen-status" class="status"></div>
 
-    <div id="print-area">
-      <div class="voucher-grid" id="voucher-grid"></div>
-    </div>
-  </div>
+    <div class="main">
+      <div class="topbar">
+        <h1 id="page-title">Dashboard</h1>
+        <button class="theme-btn" onclick="toggleTheme()" id="theme-toggle-btn">&#9728;&#65039;</button>
+      </div>
 
-  <div class="card">
-    <h2>Recent Transactions <button class="secondary" onclick="loadTransactions()" style="float:right;padding:4px 10px;font-size:12px;">Refresh</button></h2>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr><th>Reference</th><th>Package</th><th>Phone</th><th>Amount</th><th>Status</th><th>Voucher</th><th>SMS</th><th>Expired</th><th>Date</th></tr>
-        </thead>
-        <tbody id="tx-body"></tbody>
-      </table>
+      <!-- DASHBOARD -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="card">
+          <div class="stat-grid">
+            <div class="stat-box"><div class="num" id="d-today-rev">-</div><div class="lbl">Today Revenue (GHS)</div></div>
+            <div class="stat-box"><div class="num" id="d-today-orders">-</div><div class="lbl">Today Orders</div></div>
+            <div class="stat-box"><div class="num" id="d-week-rev">-</div><div class="lbl">7-Day Revenue (GHS)</div></div>
+            <div class="stat-box"><div class="num" id="d-week-orders">-</div><div class="lbl">7-Day Orders</div></div>
+            <div class="stat-box"><div class="num" id="d-pending">-</div><div class="lbl">Pending Bills</div></div>
+            <div class="stat-box"><div class="num" id="d-customers">-</div><div class="lbl">Total Customers</div></div>
+            <div class="stat-box"><div class="num" id="d-active">-</div><div class="lbl">Active Now</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BILLING -->
+      <div class="tab-panel" id="tab-billing">
+        <div class="card">
+          <h2>Create Manual Bill</h2>
+          <div class="row">
+            <div><label>Phone</label><input id="mb-phone" placeholder="0XXXXXXXXX"></div>
+            <div><label>Package / Label</label><input id="mb-package" placeholder="e.g. 12 Hours"></div>
+            <div><label>Amount (GHS)</label><input id="mb-amount" type="number" step="0.01"></div>
+            <div><label>Note</label><input id="mb-note" placeholder="optional"></div>
+          </div>
+          <button onclick="createManualBill()">Create Bill</button>
+          <div id="mb-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Billing <button class="secondary" style="float:right;" onclick="loadBilling()">Refresh</button></h2>
+          <div class="row" style="margin-bottom:10px;">
+            <div><label>Type</label><select id="bill-filter-type" onchange="loadBilling()">
+              <option value="">All</option><option value="online">Online</option><option value="cash">Cash/Voucher</option><option value="manual">Manual</option>
+            </select></div>
+            <div><label>Status</label><select id="bill-filter-status" onchange="loadBilling()">
+              <option value="">All</option><option value="pending">Pending</option><option value="success">Success</option><option value="failed">Failed</option>
+            </select></div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Reference</th><th>Type</th><th>Package</th><th>Phone</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="billing-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENTS -->
+      <div class="tab-panel" id="tab-payments">
+        <div class="card">
+          <div class="pill-tabs">
+            <button class="active" id="pay-tab-online" onclick="loadPayments('online')">Online (Paystack)</button>
+            <button id="pay-tab-voucher" onclick="loadPayments('voucher')">Voucher / Cash</button>
+          </div>
+          <div id="pay-total" style="font-weight:700;margin-bottom:10px;"></div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Reference</th><th>Package</th><th>Phone</th><th>Amount</th><th>Date</th></tr></thead>
+              <tbody id="payments-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VOUCHERS -->
+      <div class="tab-panel" id="tab-vouchers">
+        <div class="card">
+          <h2>Generate Vouchers</h2>
+          <div class="row">
+            <div><label>Package</label>
+              <select id="gen-package">
+                <option value="5 Hours">5 Hours</option><option value="12 Hours">12 Hours</option>
+                <option value="1 Day Falaaa">1 Day Falaaa</option><option value="2 Days Turbo Max">2 Days Turbo Max</option>
+                <option value="1Hr Unlimited">1Hr Unlimited</option><option value="24Hr Unlimited">24Hr Unlimited</option>
+                <option value="test">Test (5 min)</option>
+              </select>
+            </div>
+            <div><label>Quantity (max 50)</label><input type="number" id="gen-qty" value="5" min="1" max="50"></div>
+          </div>
+          <button onclick="generateVouchers()" id="gen-btn">Generate</button>
+          <button class="secondary" onclick="window.print()" id="print-btn" style="display:none;margin-left:8px;">Print</button>
+          <div id="gen-status" class="status"></div>
+          <div id="print-area"><div class="voucher-grid" id="voucher-grid"></div></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="tab-panel" id="tab-customers">
+        <div class="card">
+          <h2>Customers <button class="secondary" style="float:right;" onclick="loadCustomers()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Phone</th><th>Orders</th><th>Total Spent (GHS)</th><th>Last Order</th></tr></thead>
+              <tbody id="customers-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SMS -->
+      <div class="tab-panel" id="tab-sms">
+        <div class="card">
+          <h2>Promotional SMS</h2>
+          <textarea id="bulk-message" placeholder="Message..." maxlength="300"></textarea>
+          <div id="sms-customer-list" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
+          <div class="row">
+            <button class="secondary" onclick="selectAllCustomers(true)">Select All</button>
+            <button class="secondary" onclick="selectAllCustomers(false)">Select None</button>
+            <button onclick="sendBulkSmsAction()" id="bulk-send-btn">Send</button>
+          </div>
+          <div id="bulk-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Reminder: Expiring Soon</h2>
+          <div class="row">
+            <div><label>Within next (hours)</label><input type="number" id="reminder-hours" value="2" min="0.5" step="0.5"></div>
+            <div><label>Message</label><input id="reminder-message" value="Your NETGHWiFi voucher expires soon. Buy another to stay connected!"></div>
+          </div>
+          <button onclick="sendReminders()" id="reminder-btn">Send Reminders</button>
+          <div id="reminder-status" class="status"></div>
+        </div>
+      </div>
+
+      <!-- MONITORING -->
+      <div class="tab-panel" id="tab-live">
+        <div class="card">
+          <h2>Router Status <button class="secondary" style="float:right;" onclick="loadStats()">Refresh</button></h2>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="num" id="stat-active">-</div><div class="lbl">Active Now</div></div>
+            <div class="stat-box"><div class="num" id="stat-total">-</div><div class="lbl">Voucher Accounts</div></div>
+            <div class="stat-box"><div class="num" id="stat-cpu">-</div><div class="lbl">CPU Load</div></div>
+            <div class="stat-box"><div class="num" id="stat-mem">-</div><div class="lbl">Free Memory</div></div>
+            <div class="stat-box"><div class="num" id="stat-uptime">-</div><div class="lbl">Router Uptime</div></div>
+          </div>
+          <div id="stats-updated" class="status"></div>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>User</th><th>IP</th><th>Session Uptime</th></tr></thead><tbody id="active-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="tab-panel" id="tab-reports">
+        <div class="card">
+          <h2>Export Report (CSV)</h2>
+          <div class="row">
+            <div><label>From</label><input type="date" id="report-from"></div>
+            <div><label>To</label><input type="date" id="report-to"></div>
+          </div>
+          <button onclick="exportReport()">Download CSV</button>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOGS -->
+      <div class="tab-panel" id="tab-logs">
+        <div class="card">
+          <h2>Activity Logs <button class="secondary" style="float:right;" onclick="loadLogs()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Actor</th><th>Action</th><th>Details</th><th>Date</th></tr></thead><tbody id="logs-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="tab-panel" id="tab-users">
+        <div class="card">
+          <h2>Add Admin User</h2>
+          <div class="row">
+            <div><label>Username</label><input id="nu-username"></div>
+            <div><label>Role</label><select id="nu-role"><option value="cashier">Cashier</option><option value="accountant">Accountant</option><option value="admin">Admin</option></select></div>
+          </div>
+          <button onclick="createUser()">Create User</button>
+          <div id="nu-status" class="status"></div>
+          <div id="nu-key-box" style="display:none;margin-top:10px;">
+            <label>API key (shown once - copy it now):</label>
+            <div class="keybox" id="nu-key-value"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Users <button class="secondary" style="float:right;" onclick="loadUsers()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="tab-panel" id="tab-settings">
+        <div class="card">
+          <h2>Settings</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Package pricing and voucher duration are NOT edited here - they live in <code>packages.js</code> on the
+            backend and in the router scripts, and must be kept in sync manually across both. This section is for
+            settings the panel itself uses.
+          </p>
+          <label>Reminder default message</label>
+          <textarea id="set-reminder-msg"></textarea>
+          <button onclick="saveSettings()">Save</button>
+          <div id="settings-status" class="status"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
-  // ==== CONFIG ====
   const API_BASE = "https://wifi-backend-29n9.onrender.com";
-  // ================
-
   let adminKey = "";
+  let myRole = "cashier";
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = theme === 'light' ? '\u{1F319}' : '\u2600\uFE0F';
+    try { localStorage.setItem('ngw-admin-theme', theme); } catch (e) {}
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(cur === 'light' ? 'dark' : 'light');
+  }
+  (function () { let s; try { s = localStorage.getItem('ngw-admin-theme'); } catch (e) {} applyTheme(s || 'dark'); })();
+
+  function authHeaders(extra) {
+    return Object.assign({ 'x-admin-key': adminKey }, extra || {});
+  }
 
   function login() {
     const key = document.getElementById('admin-key-input').value.trim();
     if (!key) return;
     adminKey = key;
-    fetch(API_BASE + '/api/admin/transactions?limit=1', { headers: { 'x-admin-key': adminKey } })
-      .then(r => {
-        if (r.status === 401) throw new Error('Wrong admin key');
-        if (!r.ok) throw new Error('Server error');
-        return r.json();
-      })
+    fetch(API_BASE + '/api/admin/dashboard', { headers: authHeaders() })
+      .then(r => { if (r.status === 401) throw new Error('Wrong admin key'); if (!r.ok) throw new Error('Server error'); return r.json(); })
       .then(() => {
         document.getElementById('login-gate').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        loadTransactions();
+        document.getElementById('shell').style.display = 'block';
+        detectRole();
+        showTab('dashboard');
       })
-      .catch(err => {
-        document.getElementById('login-status').textContent = err.message;
-      });
+      .catch(err => { document.getElementById('login-status').textContent = err.message; });
   }
 
-  function statusBadge(status) {
-    return '<span class="badge ' + status + '">' + status + '</span>';
+  function detectRole() {
+    // Try an admin-only endpoint; if it 403s, we know we're not full admin.
+    fetch(API_BASE + '/api/admin/users', { headers: authHeaders() }).then(r => {
+      if (r.status === 403) {
+        myRole = 'cashier';
+        document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = 'none');
+      } else {
+        myRole = 'admin';
+      }
+    }).catch(() => {});
   }
 
-  function loadTransactions() {
-    fetch(API_BASE + '/api/admin/transactions?limit=50', { headers: { 'x-admin-key': adminKey } })
-      .then(r => r.json())
-      .then(rows => {
-        const body = document.getElementById('tx-body');
-        body.innerHTML = rows.map(tx => `
-          <tr>
-            <td>${tx.reference}</td>
-            <td>${tx.packageId || ''}</td>
-            <td>${tx.phone || ''}</td>
-            <td>GHS ${((tx.amountKobo || 0) / 100).toFixed(2)}</td>
-            <td>${statusBadge(tx.status)}</td>
-            <td>${tx.hotspotUsername || '-'}</td>
-            <td>${tx.smsSent ? 'Sent' : '-'}</td>
-            <td>${tx.expired ? 'Yes' : 'No'}</td>
-            <td>${new Date(tx.createdAt).toLocaleString()}</td>
-          </tr>
-        `).join('');
-      })
-      .catch(() => {});
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelector('.nav-item[data-tab="' + name + '"]').classList.add('active');
+    document.getElementById('page-title').textContent = document.querySelector('.nav-item[data-tab="' + name + '"]').textContent;
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'billing') loadBilling();
+    if (name === 'payments') loadPayments('online');
+    if (name === 'customers') loadCustomers();
+    if (name === 'sms') loadSmsCustomers();
+    if (name === 'live') loadStats();
+    if (name === 'logs') loadLogs();
+    if (name === 'users') loadUsers();
+    if (name === 'settings') loadSettings();
   }
 
+  function badge(s) { return '<span class="badge ' + s + '">' + s + '</span>'; }
+
+  // ---- Dashboard ----
+  function loadDashboard() {
+    fetch(API_BASE + '/api/admin/dashboard', { headers: authHeaders() }).then(r => r.json()).then(d => {
+      document.getElementById('d-today-rev').textContent = (d.todayRevenueGHS || 0).toFixed(2);
+      document.getElementById('d-today-orders').textContent = d.todayOrders || 0;
+      document.getElementById('d-week-rev').textContent = (d.weekRevenueGHS || 0).toFixed(2);
+      document.getElementById('d-week-orders').textContent = d.weekOrders || 0;
+      document.getElementById('d-pending').textContent = d.pendingBills || 0;
+      document.getElementById('d-customers').textContent = d.totalCustomers || 0;
+      document.getElementById('d-active').textContent = d.activeNow || 0;
+    }).catch(() => {});
+  }
+
+  // ---- Billing ----
+  function loadBilling() {
+    const type = document.getElementById('bill-filter-type').value;
+    const status = document.getElementById('bill-filter-status').value;
+    const qs = new URLSearchParams(); if (type) qs.set('billingType', type); if (status) qs.set('status', status);
+    fetch(API_BASE + '/api/admin/billing?' + qs.toString(), { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('billing-body').innerHTML = rows.map(t => `
+        <tr>
+          <td>${t.reference}</td><td>${t.billingType}</td><td>${t.packageId || ''}</td><td>${t.phone || ''}</td>
+          <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${t.canceled ? badge('failed') : badge(t.status)}</td>
+          <td>
+            ${t.status !== 'success' && !t.canceled ? `<button class="secondary" onclick="markPaid('${t.reference}')">Mark Paid</button>` : ''}
+            ${!t.canceled ? `<button class="danger" onclick="cancelBill('${t.reference}')">Cancel</button>` : ''}
+          </td>
+        </tr>`).join('');
+    }).catch(() => {});
+  }
+  function createManualBill() {
+    const phone = document.getElementById('mb-phone').value.trim();
+    const packageId = document.getElementById('mb-package').value.trim();
+    const amountGHS = parseFloat(document.getElementById('mb-amount').value) || 0;
+    const note = document.getElementById('mb-note').value.trim();
+    const statusEl = document.getElementById('mb-status');
+    if (!phone) { statusEl.className = 'status error'; statusEl.textContent = 'Phone required.'; return; }
+    fetch(API_BASE + '/api/admin/billing/manual', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ phone, packageId, amountKobo: Math.round(amountGHS * 100), note })
+    }).then(r => r.json()).then(d => {
+      statusEl.className = 'status ok'; statusEl.textContent = 'Bill created: ' + d.reference;
+      loadBilling();
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+  function markPaid(ref) {
+    fetch(API_BASE + '/api/admin/billing/' + ref + '/mark-paid', { method: 'POST', headers: authHeaders() }).then(loadBilling);
+  }
+  function cancelBill(ref) {
+    if (!confirm('Cancel this bill?')) return;
+    fetch(API_BASE + '/api/admin/billing/' + ref + '/cancel', { method: 'POST', headers: authHeaders() }).then(loadBilling);
+  }
+
+  // ---- Payments ----
+  function loadPayments(type) {
+    document.getElementById('pay-tab-online').classList.toggle('active', type === 'online');
+    document.getElementById('pay-tab-voucher').classList.toggle('active', type === 'voucher');
+    fetch(API_BASE + '/api/admin/payments?type=' + type, { headers: authHeaders() }).then(r => r.json()).then(d => {
+      document.getElementById('pay-total').textContent = 'Total: GHS ' + (d.totalGHS || 0).toFixed(2) + ' (' + d.rows.length + ' payments)';
+      document.getElementById('payments-body').innerHTML = d.rows.map(t => `
+        <tr><td>${t.reference}</td><td>${t.packageId||''}</td><td>${t.phone||''}</td>
+        <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${new Date(t.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  // ---- Vouchers ----
   function generateVouchers() {
     const packageId = document.getElementById('gen-package').value;
     const quantity = document.getElementById('gen-qty').value;
-    const genBtn = document.getElementById('gen-btn');
-    const statusEl = document.getElementById('gen-status');
-    const grid = document.getElementById('voucher-grid');
-    const printBtn = document.getElementById('print-btn');
-
-    genBtn.disabled = true;
-    printBtn.style.display = 'none';
-    grid.innerHTML = '';
-    statusEl.className = 'status';
-    statusEl.textContent = 'Creating vouchers…';
-
+    const genBtn = document.getElementById('gen-btn'), statusEl = document.getElementById('gen-status');
+    const grid = document.getElementById('voucher-grid'), printBtn = document.getElementById('print-btn');
+    genBtn.disabled = true; printBtn.style.display = 'none'; grid.innerHTML = '';
+    statusEl.className = 'status'; statusEl.textContent = 'Creating vouchers\u2026';
     fetch(API_BASE + '/api/admin/vouchers/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ packageId, quantity })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (!data.references) {
-        statusEl.className = 'status error';
-        statusEl.textContent = data.message || 'Could not generate vouchers.';
-        genBtn.disabled = false;
-        return;
-      }
-      statusEl.textContent = 'Waiting for router to fulfill ' + data.references.length + ' voucher(s)… (usually under 30s)';
+    }).then(r => r.json()).then(data => {
+      if (!data.references) { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; genBtn.disabled = false; return; }
+      statusEl.textContent = 'Waiting for router to fulfill ' + data.references.length + ' voucher(s)\u2026';
       pollVouchers(data.references, packageId, genBtn, statusEl, printBtn);
-    })
-    .catch(() => {
-      statusEl.className = 'status error';
-      statusEl.textContent = 'Network error. Please try again.';
-      genBtn.disabled = false;
-    });
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; genBtn.disabled = false; });
   }
-
   function pollVouchers(references, packageId, genBtn, statusEl, printBtn) {
-    const results = {};
-    let attempts = 0;
-    const maxAttempts = 40; // ~2 minutes at 3s interval
-
+    const results = {}; let attempts = 0; const maxAttempts = 40;
     const timer = setInterval(() => {
       attempts++;
-      Promise.all(references.map(ref =>
-        fetch(API_BASE + '/api/orders/' + ref + '/status').then(r => r.json()).then(d => ({ ref, d }))
-      )).then(list => {
-        list.forEach(({ ref, d }) => {
-          if (d.status === 'success' && d.hotspotUsername) results[ref] = d.hotspotUsername;
-        });
-        renderVouchers(results, packageId);
-
+      Promise.all(references.map(ref => fetch(API_BASE + '/api/orders/' + ref + '/status').then(r => r.json()).then(d => ({ d })))).then(list => {
+        list.forEach(({ d }) => { if (d.status === 'success' && d.hotspotUsername) results[d.hotspotUsername] = true; });
+        renderVouchers(Object.keys(results), packageId);
         if (Object.keys(results).length === references.length) {
-          clearInterval(timer);
-          statusEl.className = 'status ok';
-          statusEl.textContent = 'All vouchers ready.';
-          genBtn.disabled = false;
-          printBtn.style.display = 'inline-block';
-          loadTransactions();
+          clearInterval(timer); statusEl.className = 'status ok'; statusEl.textContent = 'All vouchers ready.';
+          genBtn.disabled = false; printBtn.style.display = 'inline-block'; loadBilling();
         } else if (attempts >= maxAttempts) {
-          clearInterval(timer);
-          statusEl.className = 'status error';
-          statusEl.textContent = 'Some vouchers are taking longer than usual - check Recent Transactions below, or check the router is online.';
-          genBtn.disabled = false;
-          if (Object.keys(results).length > 0) printBtn.style.display = 'inline-block';
+          clearInterval(timer); statusEl.className = 'status error'; statusEl.textContent = 'Some are taking longer than usual - check Billing.';
+          genBtn.disabled = false; if (Object.keys(results).length > 0) printBtn.style.display = 'inline-block';
         }
       });
     }, 3000);
   }
-
-  function renderVouchers(results, packageId) {
-    const grid = document.getElementById('voucher-grid');
-    grid.innerHTML = Object.values(results).map(code => `
-      <div class="voucher-card">
-        <div class="pkg">${packageId}</div>
-        <div class="code">${code}</div>
-        <div class="pkg">Use as Username &amp; Password</div>
-        <div class="brand">NETGHWiFi</div>
-      </div>
-    `).join('');
+  function renderVouchers(codes, packageId) {
+    document.getElementById('voucher-grid').innerHTML = codes.map(code => `
+      <div class="voucher-card"><div class="pkg">${packageId}</div><div class="code">${code}</div>
+      <div class="pkg">Use as Username &amp; Password</div><div class="brand">NETGHWiFi</div></div>`).join('');
   }
 
-  loadTransactions;
+  // ---- Customers ----
+  let customersCache = [];
+  function loadCustomers() {
+    fetch(API_BASE + '/api/admin/customers', { headers: authHeaders() }).then(r => r.json()).then(list => {
+      customersCache = list;
+      document.getElementById('customers-body').innerHTML = list.map(c => `
+        <tr><td>${c.phone}</td><td>${c.orderCount}</td><td>${c.totalSpentGHS.toFixed(2)}</td><td>${new Date(c.lastOrder).toLocaleDateString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+  function loadSmsCustomers() {
+    fetch(API_BASE + '/api/admin/customers', { headers: authHeaders() }).then(r => r.json()).then(list => {
+      customersCache = list;
+      document.getElementById('sms-customer-list').innerHTML = list.map(c => `
+        <label class="checkline"><input type="checkbox" class="customer-check" value="${c.phone}" checked>${c.phone} (${c.orderCount} orders)</label>`).join('') ||
+        '<p style="color:var(--muted);font-size:13px;">No customers yet.</p>';
+    }).catch(() => {});
+  }
+  function selectAllCustomers(state) { document.querySelectorAll('.customer-check').forEach(cb => cb.checked = state); }
+
+  function sendBulkSmsAction() {
+    const message = document.getElementById('bulk-message').value.trim();
+    const phones = Array.from(document.querySelectorAll('.customer-check:checked')).map(cb => cb.value);
+    const statusEl = document.getElementById('bulk-status'), btn = document.getElementById('bulk-send-btn');
+    if (!message) { statusEl.className = 'status error'; statusEl.textContent = 'Write a message first.'; return; }
+    if (phones.length === 0) { statusEl.className = 'status error'; statusEl.textContent = 'Select at least one customer.'; return; }
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Sending to ' + phones.length + '\u2026';
+    fetch(API_BASE + '/api/admin/sms/bulk', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message, phones })
+    }).then(r => r.json()).then(data => {
+      btn.disabled = false;
+      if (data.sent) { statusEl.className = 'status ok'; statusEl.textContent = 'Sent to ' + data.recipientCount + '.'; }
+      else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Send failed.'; }
+    }).catch(() => { btn.disabled = false; statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function sendReminders() {
+    const hours = document.getElementById('reminder-hours').value;
+    const message = document.getElementById('reminder-message').value.trim();
+    const statusEl = document.getElementById('reminder-status'), btn = document.getElementById('reminder-btn');
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Finding expiring vouchers\u2026';
+    fetch(API_BASE + '/api/admin/sms/expiring-soon?hours=' + hours, { headers: authHeaders() }).then(r => r.json()).then(list => {
+      const phones = [...new Set(list.map(x => x.phone))];
+      if (phones.length === 0) { btn.disabled = false; statusEl.className = 'status'; statusEl.textContent = 'No vouchers expiring soon.'; return; }
+      return fetch(API_BASE + '/api/admin/sms/bulk', {
+        method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message, phones })
+      }).then(r => r.json()).then(data => {
+        btn.disabled = false;
+        statusEl.className = data.sent ? 'status ok' : 'status error';
+        statusEl.textContent = data.sent ? ('Reminder sent to ' + phones.length + '.') : (data.message || 'Failed.');
+      });
+    }).catch(() => { btn.disabled = false; statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  // ---- Live status ----
+  function loadStats() {
+    fetch(API_BASE + '/api/admin/router-stats', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('stat-active').textContent = s.activeCount ?? '-';
+      document.getElementById('stat-total').textContent = s.totalVoucherAccounts ?? '-';
+      document.getElementById('stat-cpu').textContent = (s.cpuLoad ?? '-') + '%';
+      document.getElementById('stat-mem').textContent = s.freeMemory ? Math.round(s.freeMemory/1024/1024) + ' MB' : '-';
+      document.getElementById('stat-uptime').textContent = s.uptime || '-';
+      document.getElementById('stats-updated').textContent = s.reportedAt ? 'Last updated: ' + new Date(s.reportedAt).toLocaleString() : 'No data yet - install the router stats script.';
+      document.getElementById('active-body').innerHTML = (s.activeUsers||[]).map(u => `<tr><td>${u.user}</td><td>${u.address}</td><td>${u.uptime}</td></tr>`).join('') ||
+        '<tr><td colspan="3" style="color:var(--muted);">No active sessions.</td></tr>';
+    }).catch(() => {});
+  }
+
+  // ---- Reports ----
+  function exportReport() {
+    const from = document.getElementById('report-from').value;
+    const to = document.getElementById('report-to').value;
+    const qs = new URLSearchParams({ adminKey }); if (from) qs.set('from', from); if (to) qs.set('to', to);
+    window.location = API_BASE + '/api/admin/reports/export?' + qs.toString();
+  }
+
+  // ---- Activity logs ----
+  function loadLogs() {
+    fetch(API_BASE + '/api/admin/activity-logs', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('logs-body').innerHTML = rows.map(l => `
+        <tr><td>${l.actor}</td><td>${l.action}</td><td>${JSON.stringify(l.details||{})}</td><td>${new Date(l.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  // ---- Users ----
+  function loadUsers() {
+    fetch(API_BASE + '/api/admin/users', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('users-body').innerHTML = rows.map(u => `
+        <tr><td>${u.username}</td><td>${u.role}</td><td>${u.active ? 'Yes' : 'No'}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td>${u.active ? `<button class="danger" onclick="deactivateUser('${u.username}')">Deactivate</button>` : ''}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+  function createUser() {
+    const username = document.getElementById('nu-username').value.trim();
+    const role = document.getElementById('nu-role').value;
+    const statusEl = document.getElementById('nu-status');
+    if (!username) { statusEl.className = 'status error'; statusEl.textContent = 'Username required.'; return; }
+    fetch(API_BASE + '/api/admin/users', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ username, role })
+    }).then(r => r.json()).then(data => {
+      if (data.apiKey) {
+        statusEl.className = 'status ok'; statusEl.textContent = 'User created.';
+        document.getElementById('nu-key-box').style.display = 'block';
+        document.getElementById('nu-key-value').textContent = data.apiKey;
+        loadUsers();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+  function deactivateUser(username) {
+    if (!confirm('Deactivate ' + username + '?')) return;
+    fetch(API_BASE + '/api/admin/users/' + username + '/deactivate', { method: 'POST', headers: authHeaders() }).then(loadUsers);
+  }
+
+  // ---- Settings ----
+  function loadSettings() {
+    fetch(API_BASE + '/api/admin/settings', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('set-reminder-msg').value = s.reminderMessage || 'Your NETGHWiFi voucher expires soon. Buy another to stay connected!';
+    }).catch(() => {});
+  }
+  function saveSettings() {
+    const reminderMessage = document.getElementById('set-reminder-msg').value;
+    const statusEl = document.getElementById('settings-status');
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ reminderMessage })
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
 </script>
 </body>
 </html>

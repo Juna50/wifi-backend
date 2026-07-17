@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const Transaction = require('../models/Transaction');
 const RouterStats = require('../models/RouterStats');
+const RouterCommand = require('../models/RouterCommand');
 const AdminUser = require('../models/AdminUser');
 const ActivityLog = require('../models/ActivityLog');
 const Settings = require('../models/Settings');
@@ -432,6 +433,70 @@ router.get('/admin/transactions', auth, async (req, res) => {
   } catch (err) {
     console.error('GET /admin/transactions failed:', err.message);
     res.status(500).json([]);
+  }
+});
+
+// ===========================================================================
+// TERMINAL - remote action runner (admin only). This is NOT a full
+// interactive console: RouterOS scripting has no reliable way to capture
+// arbitrary console print output back into a string, so this reports
+// success/fail only. For anything you need to *see*, use Monitoring - it's
+// already reporting real data. Full failure detail always lives in the
+// router's own /log.
+// ===========================================================================
+router.post('/admin/terminal/execute', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { command } = req.body;
+    if (!command || !command.trim()) return res.status(400).json({ message: 'Command required' });
+    const cmd = await RouterCommand.create({ command: command.trim(), requestedBy: req.actor.username });
+    logActivity(req.actor.username, 'terminal.execute', { command: command.trim() });
+    res.json({ id: cmd._id });
+  } catch (err) {
+    console.error('POST /admin/terminal/execute failed:', err.message);
+    res.status(500).json({ message: 'Could not queue command' });
+  }
+});
+
+router.get('/admin/terminal/history', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const rows = await RouterCommand.find({}).sort({ createdAt: -1 }).limit(50);
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /admin/terminal/history failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+// Router polls this - key-protected the same way as /router-stats, not
+// the per-user auth system, since the router itself has no "user".
+router.get('/terminal/next', async (req, res) => {
+  try {
+    if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) return res.sendStatus(401);
+    const cmd = await RouterCommand.findOneAndUpdate(
+      { status: 'pending' },
+      { $set: { status: 'claimed' } },
+      { sort: { createdAt: 1 }, new: true }
+    );
+    if (!cmd) return res.json({ found: false });
+    res.json({ found: true, id: cmd._id, command: cmd.command });
+  } catch (err) {
+    console.error('GET /terminal/next failed:', err.message);
+    res.status(500).json({ found: false });
+  }
+});
+
+router.post('/terminal/:id/result', async (req, res) => {
+  try {
+    if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) return res.sendStatus(401);
+    const { status } = req.body;
+    await RouterCommand.findByIdAndUpdate(req.params.id, {
+      status: status === 'error' ? 'error' : 'done',
+      completedAt: new Date()
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /terminal/:id/result failed:', err.message);
+    res.status(500).json({ message: 'Could not store result' });
   }
 });
 

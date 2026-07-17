@@ -23,9 +23,9 @@
   .sidebar .brand img { width:30px; height:30px; border-radius:50%; vertical-align:-9px; margin-right:8px; }
 
   :root {
-    --blue:#29a8e0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e0503b; --amber:#e0a53b;
-    --bg:#0e1116; --card:#161b22; --border:#232a33; --text:#e6edf3; --muted:#8b98a5; --input:#0e1116;
-    --sidebar:#0a0d12;
+    --blue:#3badf0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e5504a; --amber:#f0a93b; --violet:#8b6ef0;
+    --bg:#0b0e13; --card:#151a23; --border:#262e3a; --text:#eef2f6; --muted:#94a3b5; --input:#0e131b;
+    --sidebar:#090c11;
   }
   [data-theme="light"] {
     --bg:#f4f8fb; --card:#ffffff; --border:#dbe6ee; --text:#12232f; --muted:#5c7488; --input:#f3faf8; --sidebar:#0e2a5e;
@@ -62,6 +62,9 @@
     .sidebar-overlay.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:55; }
   }
   input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
+  select { color-scheme: dark; }
+  [data-theme="light"] select { color-scheme: light; }
+  select option { background:var(--input); color:var(--text); }
   textarea { resize:vertical; min-height:70px; }
   button { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
   button.secondary { background:var(--border); color:var(--text); }
@@ -77,13 +80,13 @@
   .sidebar .brand { color:#fff; font-weight:800; font-size:16px; padding:0 18px 18px; }
   .nav-item { display:block; width:100%; text-align:left; background:none; border:none; color:rgba(255,255,255,0.75); padding:11px 18px; font-size:13px; font-weight:600; cursor:pointer; border-radius:0; }
   .nav-item:hover { background:rgba(255,255,255,0.06); }
-  .nav-item.active { background:var(--blue); color:#fff; }
+  .nav-item.active { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; box-shadow:0 4px 14px rgba(59,173,240,0.35); }
   .main { flex:1; padding:22px 24px 60px; max-width:1100px; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
   .topbar h1 { font-size:18px; margin:0; }
   .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; border-radius:50%; cursor:pointer; }
 
-  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
   .card h2 { font-size:15px; margin:0 0 14px; }
   label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
@@ -160,6 +163,7 @@
       <button class="nav-item" data-tab="reports" onclick="showTab('reports')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg>Reports</button>
       <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>Activity Logs</button>
       <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg>Users</button>
+      <button class="nav-item role-admin-only" data-tab="terminal" onclick="showTab('terminal')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Terminal</button>
       <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</button>
     </div>
 
@@ -404,6 +408,28 @@
         </div>
       </div>
 
+      <!-- TERMINAL -->
+      <div class="tab-panel" id="tab-terminal">
+        <div class="card">
+          <h2>Remote Command</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Runs on the router within ~5 seconds. This reports <strong>success/fail only</strong> - RouterOS
+            can't reliably relay arbitrary console output back here. For anything you need to <em>see</em>
+            (active users, resource stats), use Monitoring instead. For failure detail, check
+            <code>/log print</code> on the router directly. Every command is logged to Activity Logs.
+          </p>
+          <input id="term-command" placeholder="/ip hotspot user disable [find name=&quot;u12345678&quot;]" style="font-family:monospace;">
+          <button onclick="sendTerminalCommand()" id="term-send-btn">Send Command</button>
+          <div id="term-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Command History <button class="secondary" style="float:right;" onclick="loadTerminalHistory()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Command</th><th>Status</th><th>By</th><th>Sent</th></tr></thead><tbody id="term-history-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
       <!-- SETTINGS -->
       <div class="tab-panel" id="tab-settings">
         <div class="card">
@@ -497,6 +523,7 @@
     if (name === 'live') loadStats();
     if (name === 'logs') loadLogs();
     if (name === 'users') loadUsers();
+    if (name === 'terminal') loadTerminalHistory();
     if (name === 'settings') loadSettings();
   }
 
@@ -775,6 +802,47 @@
   }
 
   // ---- Settings ----
+  // ---- Terminal ----
+  function sendTerminalCommand() {
+    const command = document.getElementById('term-command').value.trim();
+    const statusEl = document.getElementById('term-status'), btn = document.getElementById('term-send-btn');
+    if (!command) { statusEl.className = 'status error'; statusEl.textContent = 'Enter a command first.'; return; }
+    if (!confirm('Run this on your live router?\n\n' + command + '\n\nThis executes immediately - there is no undo.')) return;
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Queued - waiting for router to pick it up (~5s)\u2026';
+    fetch(API_BASE + '/api/admin/terminal/execute', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ command })
+    }).then(r => r.json()).then(data => {
+      if (!data.id) { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed to queue.'; btn.disabled = false; return; }
+      document.getElementById('term-command').value = '';
+      pollTerminalResult(data.id, statusEl, btn);
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; btn.disabled = false; });
+  }
+  function pollTerminalResult(id, statusEl, btn) {
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts++;
+      fetch(API_BASE + '/api/admin/terminal/history', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+        const row = rows.find(r => r._id === id);
+        if (row && row.status !== 'pending' && row.status !== 'claimed') {
+          clearInterval(timer); btn.disabled = false;
+          statusEl.className = row.status === 'done' ? 'status ok' : 'status error';
+          statusEl.textContent = row.status === 'done' ? 'Command ran successfully.' : 'Command failed - check /log on the router.';
+          loadTerminalHistory();
+        } else if (attempts >= 20) {
+          clearInterval(timer); btn.disabled = false;
+          statusEl.className = 'status error'; statusEl.textContent = 'No response yet - confirm the terminal poll script is installed and running.';
+        }
+      }).catch(() => {});
+    }, 2000);
+  }
+  function loadTerminalHistory() {
+    fetch(API_BASE + '/api/admin/terminal/history', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('term-history-body').innerHTML = rows.map(c => `
+        <tr><td style="font-family:monospace;">${c.command}</td><td>${badge(c.status === 'done' ? 'success' : (c.status === 'error' ? 'failed' : 'pending'))}</td>
+        <td>${c.requestedBy || ''}</td><td>${new Date(c.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
   function loadSettings() {
     fetch(API_BASE + '/api/admin/settings', { headers: authHeaders() }).then(r => r.json()).then(s => {
       document.getElementById('set-reminder-msg').value = s.reminderMessage || 'Your NETGHWiFi voucher expires soon. Buy another to stay connected!';

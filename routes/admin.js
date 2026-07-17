@@ -191,7 +191,7 @@ router.post('/admin/vouchers/generate', auth, requireRole('admin', 'cashier'), a
     });
     const references = await Promise.all(creates);
     logActivity(req.actor.username, 'vouchers.generate', { packageId, quantity: qty });
-    res.json({ references });
+    res.json({ references, priceGHS: priceGHS || 0 });
   } catch (err) {
     console.error('POST /admin/vouchers/generate failed:', err.message);
     res.status(500).json({ message: 'Could not generate vouchers' });

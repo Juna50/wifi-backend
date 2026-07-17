@@ -4,7 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NETGHWiFi Admin</title>
+<link rel="icon" href="assets/favicon.png">
 <style>
+  @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes popIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+  .tab-panel.active { animation: fadeSlideIn 0.35s ease; }
+  .stat-box { animation: popIn 0.3s ease backwards; }
+  .stat-box:nth-child(1){animation-delay:.02s} .stat-box:nth-child(2){animation-delay:.06s}
+  .stat-box:nth-child(3){animation-delay:.10s} .stat-box:nth-child(4){animation-delay:.14s}
+  .stat-box:nth-child(5){animation-delay:.18s} .stat-box:nth-child(6){animation-delay:.22s}
+  .stat-box:nth-child(7){animation-delay:.26s}
+  .nav-item svg { vertical-align:-3px; margin-right:8px; }
+  .nav-item { transition: background .15s ease, padding-left .15s ease; }
+  .nav-item:hover { padding-left:22px; }
+  .voucher-card { animation: popIn 0.25s ease backwards; }
+  .card { animation: fadeSlideIn 0.3s ease; }
+  .sidebar .brand img { width:30px; height:30px; border-radius:50%; vertical-align:-9px; margin-right:8px; }
+
   :root {
     --blue:#29a8e0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e0503b; --amber:#e0a53b;
     --bg:#0e1116; --card:#161b22; --border:#232a33; --text:#e6edf3; --muted:#8b98a5; --input:#0e1116;
@@ -101,18 +117,18 @@
 <div id="shell">
   <div class="layout">
     <div class="sidebar">
-      <div class="brand">NETGHWiFi</div>
-      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')">Dashboard</button>
-      <button class="nav-item" data-tab="billing" onclick="showTab('billing')">Billing</button>
-      <button class="nav-item" data-tab="payments" onclick="showTab('payments')">Payments</button>
-      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')">Vouchers</button>
-      <button class="nav-item" data-tab="customers" onclick="showTab('customers')">Customers</button>
-      <button class="nav-item" data-tab="sms" onclick="showTab('sms')">SMS</button>
-      <button class="nav-item" data-tab="live" onclick="showTab('live')">Monitoring</button>
-      <button class="nav-item" data-tab="reports" onclick="showTab('reports')">Reports</button>
-      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')">Activity Logs</button>
-      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')">Users</button>
-      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')">Settings</button>
+      <div class="brand"><img src="assets/logo.png" alt="NETGHWiFi">NETGHWiFi</div>
+      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</button>
+      <button class="nav-item" data-tab="billing" onclick="showTab('billing')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>Billing</button>
+      <button class="nav-item" data-tab="payments" onclick="showTab('payments')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Payments</button>
+      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"></path><path d="M12 6v2M12 16v2M12 11v2"></path></svg>Vouchers</button>
+      <button class="nav-item" data-tab="customers" onclick="showTab('customers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Customers</button>
+      <button class="nav-item" data-tab="sms" onclick="showTab('sms')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.38 8.5 8.5 0 0 1-4-1L3 20l1.12-5.5A8.5 8.5 0 1 1 21 11.5z"></path></svg>SMS</button>
+      <button class="nav-item" data-tab="live" onclick="showTab('live')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>Monitoring</button>
+      <button class="nav-item" data-tab="reports" onclick="showTab('reports')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg>Reports</button>
+      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>Activity Logs</button>
+      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg>Users</button>
+      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</button>
     </div>
 
     <div class="main">
@@ -132,6 +148,39 @@
             <div class="stat-box"><div class="num" id="d-pending">-</div><div class="lbl">Pending Bills</div></div>
             <div class="stat-box"><div class="num" id="d-customers">-</div><div class="lbl">Total Customers</div></div>
             <div class="stat-box"><div class="num" id="d-active">-</div><div class="lbl">Active Now</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Quick Actions</h2>
+          <div class="row">
+            <button onclick="showTab('vouchers')">Generate Vouchers</button>
+            <button class="secondary" onclick="showTab('billing')">Create Manual Bill</button>
+            <button class="secondary" onclick="showTab('sms')">Send SMS</button>
+            <button class="secondary" onclick="showTab('reports')">Export Report</button>
+          </div>
+        </div>
+
+        <div class="row" style="align-items:stretch;">
+          <div class="card" style="flex:2;min-width:280px;">
+            <h2>Recent Billing</h2>
+            <div style="overflow-x:auto;">
+              <table><thead><tr><th>Reference</th><th>Type</th><th>Phone</th><th>Amount</th><th>Status</th></tr></thead><tbody id="d-recent-billing"></tbody></table>
+            </div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px;">
+            <h2>Router Snapshot</h2>
+            <p style="font-size:13px;margin:0 0 6px;"><strong id="d-live-active">-</strong> active now</p>
+            <p style="font-size:13px;margin:0 0 6px;">CPU: <strong id="d-live-cpu">-</strong></p>
+            <p style="font-size:13px;margin:0 0 10px;">Uptime: <strong id="d-live-uptime">-</strong></p>
+            <button class="secondary" onclick="showTab('live')" style="width:100%;">View Full Monitoring</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Recent Activity</h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Actor</th><th>Action</th><th>Date</th></tr></thead><tbody id="d-recent-activity"></tbody></table>
           </div>
         </div>
       </div>
@@ -380,7 +429,7 @@
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     document.querySelector('.nav-item[data-tab="' + name + '"]').classList.add('active');
-    document.getElementById('page-title').textContent = document.querySelector('.nav-item[data-tab="' + name + '"]').textContent;
+    document.getElementById('page-title').textContent = document.querySelector('.nav-item[data-tab="' + name + '"]').textContent.trim();
     if (name === 'dashboard') loadDashboard();
     if (name === 'billing') loadBilling();
     if (name === 'payments') loadPayments('online');
@@ -404,6 +453,27 @@
       document.getElementById('d-pending').textContent = d.pendingBills || 0;
       document.getElementById('d-customers').textContent = d.totalCustomers || 0;
       document.getElementById('d-active').textContent = d.activeNow || 0;
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/billing?limit=6', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('d-recent-billing').innerHTML = rows.slice(0, 6).map(t => `
+        <tr><td>${t.reference}</td><td>${t.billingType}</td><td>${t.phone || ''}</td>
+        <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${t.canceled ? badge('failed') : badge(t.status)}</td></tr>`).join('');
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/router-stats', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('d-live-active').textContent = s.activeCount ?? '-';
+      document.getElementById('d-live-cpu').textContent = (s.cpuLoad ?? '-') + '%';
+      document.getElementById('d-live-uptime').textContent = s.uptime || '-';
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/activity-logs', { headers: authHeaders() }).then(r => {
+      if (r.status === 403) { document.getElementById('d-recent-activity').innerHTML = '<tr><td colspan="3" style="color:var(--muted);">Activity logs are admin-only.</td></tr>'; return null; }
+      return r.json();
+    }).then(rows => {
+      if (!rows) return;
+      document.getElementById('d-recent-activity').innerHTML = rows.slice(0, 6).map(l => `
+        <tr><td>${l.actor}</td><td>${l.action}</td><td>${new Date(l.createdAt).toLocaleString()}</td></tr>`).join('');
     }).catch(() => {});
   }
 
@@ -473,16 +543,16 @@
     }).then(r => r.json()).then(data => {
       if (!data.references) { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; genBtn.disabled = false; return; }
       statusEl.textContent = 'Waiting for router to fulfill ' + data.references.length + ' voucher(s)\u2026';
-      pollVouchers(data.references, packageId, genBtn, statusEl, printBtn);
+      pollVouchers(data.references, packageId, data.priceGHS || 0, genBtn, statusEl, printBtn);
     }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; genBtn.disabled = false; });
   }
-  function pollVouchers(references, packageId, genBtn, statusEl, printBtn) {
+  function pollVouchers(references, packageId, priceGHS, genBtn, statusEl, printBtn) {
     const results = {}; let attempts = 0; const maxAttempts = 40;
     const timer = setInterval(() => {
       attempts++;
       Promise.all(references.map(ref => fetch(API_BASE + '/api/orders/' + ref + '/status').then(r => r.json()).then(d => ({ d })))).then(list => {
         list.forEach(({ d }) => { if (d.status === 'success' && d.hotspotUsername) results[d.hotspotUsername] = true; });
-        renderVouchers(Object.keys(results), packageId);
+        renderVouchers(Object.keys(results), packageId, priceGHS);
         if (Object.keys(results).length === references.length) {
           clearInterval(timer); statusEl.className = 'status ok'; statusEl.textContent = 'All vouchers ready.';
           genBtn.disabled = false; printBtn.style.display = 'inline-block'; loadBilling();
@@ -493,9 +563,10 @@
       });
     }, 3000);
   }
-  function renderVouchers(codes, packageId) {
+  function renderVouchers(codes, packageId, priceGHS) {
     document.getElementById('voucher-grid').innerHTML = codes.map(code => `
       <div class="voucher-card"><div class="pkg">${packageId}</div><div class="code">${code}</div>
+      <div class="pkg" style="font-weight:700;color:var(--green);">GHS ${(priceGHS || 0).toFixed(2)}</div>
       <div class="pkg">Use as Username &amp; Password</div><div class="brand">NETGHWiFi</div></div>`).join('');
   }
 

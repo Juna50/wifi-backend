@@ -30,7 +30,7 @@ router.get('/admin/dashboard', auth, async (req, res) => {
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
     const startOfWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const [todayAgg, weekAgg, pendingCount, customerCount, stats] = await Promise.all([
+    const [todayAgg, weekAgg, pendingCount, customerCount, stats, dailyAgg, typeAgg] = await Promise.all([
       Transaction.aggregate([
         { $match: { status: 'success', canceled: false, createdAt: { $gte: startOfToday } } },
         { $group: { _id: null, revenue: { $sum: '$amountKobo' }, count: { $sum: 1 } } }
@@ -41,8 +41,31 @@ router.get('/admin/dashboard', auth, async (req, res) => {
       ]),
       Transaction.countDocuments({ status: 'pending', canceled: false }),
       Transaction.distinct('phone', { phone: { $ne: 'ADMIN-GENERATED' }, status: 'success' }),
-      RouterStats.findOne({ key: 'latest' })
+      RouterStats.findOne({ key: 'latest' }),
+      Transaction.aggregate([
+        { $match: { status: 'success', canceled: false, createdAt: { $gte: startOfWeek } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, revenue: { $sum: '$amountKobo' }, orders: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Transaction.aggregate([
+        { $match: { status: 'success', canceled: false } },
+        { $group: { _id: '$billingType', revenue: { $sum: '$amountKobo' } } }
+      ])
     ]);
+
+    // Fill in any missing days in the 7-day window with zero, so the chart
+    // doesn't skip days with no sales.
+    const dailyMap = {};
+    dailyAgg.forEach(d => { dailyMap[d._id] = { revenueGHS: (d.revenue || 0) / 100, orders: d.orders }; });
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().slice(0, 10);
+      last7Days.push({ date: key, revenueGHS: (dailyMap[key] && dailyMap[key].revenueGHS) || 0, orders: (dailyMap[key] && dailyMap[key].orders) || 0 });
+    }
+
+    const billingTypeBreakdown = { online: 0, cash: 0, manual: 0 };
+    typeAgg.forEach(t => { if (billingTypeBreakdown[t._id] !== undefined) billingTypeBreakdown[t._id] = (t.revenue || 0) / 100; });
 
     res.json({
       todayRevenueGHS: ((todayAgg[0] && todayAgg[0].revenue) || 0) / 100,
@@ -52,7 +75,9 @@ router.get('/admin/dashboard', auth, async (req, res) => {
       pendingBills: pendingCount,
       totalCustomers: customerCount.length,
       activeNow: (stats && stats.activeCount) || 0,
-      routerLastSeen: (stats && stats.reportedAt) || null
+      routerLastSeen: (stats && stats.reportedAt) || null,
+      last7Days,
+      billingTypeBreakdown
     });
   } catch (err) {
     console.error('GET /admin/dashboard failed:', err.message);

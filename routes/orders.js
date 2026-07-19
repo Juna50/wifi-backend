@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const Transaction = require('../models/Transaction');
+const Product = require('../models/Product');
 const { sendSms } = require('../sms');
+const { msToRouterOSDuration, msToLabel } = require('../durationFormat');
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS, PACKAGE_HOURS_LABEL } = require('../packages');
 
 function genRef() {
   return 'ngw_' + crypto.randomBytes(8).toString('hex');
@@ -14,7 +14,8 @@ function genRef() {
 
 async function notifyVoucherReady(tx) {
   if (tx.smsSent) return;
-  const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
+  const product = await Product.findOne({ productId: tx.packageId });
+  const hours = product ? msToLabel(product.durationMs) : '';
   const message = `NETGHWiFi\nCode: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nEnjoy!`;
   const sent = await sendSms(tx.phone, message);
   if (sent) {
@@ -23,12 +24,28 @@ async function notifyVoucherReady(tx) {
   }
 }
 
+// --- Public product catalog, used by login.html ---------------------------
+// Lightweight on purpose - no image data - since the captive portal loads
+// this on every single connection through the walled garden. Full product
+// data (with images) is at /admin/products for the panel.
+router.get('/products', async (req, res) => {
+  try {
+    const products = await Product.find({ active: true })
+      .sort({ sortOrder: 1, createdAt: 1 })
+      .select('productId name category price durationMs isTrial dataAmount speed badge features type');
+    res.json(products);
+  } catch (err) {
+    console.error('GET /products failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
 // --- 1. Create an order --------------------------------------------------
 router.post('/orders', async (req, res) => {
   try {
     const { profile, phone, mac, ip } = req.body;
-    const priceGHS = PACKAGE_PRICES_GHS[profile];
-    if (!priceGHS || !phone) {
+    const product = await Product.findOne({ productId: profile, active: true });
+    if (!product || !phone) {
       return res.status(400).json({ message: 'Invalid package or missing phone' });
     }
 
@@ -37,7 +54,7 @@ router.post('/orders', async (req, res) => {
       reference,
       packageId: profile,
       phone,
-      amountKobo: priceGHS * 100,
+      amountKobo: product.price * 100,
       status: 'pending'
     });
 
@@ -182,7 +199,11 @@ router.post('/orders/claim-next', async (req, res) => {
       { new: true }
     );
     if (!tx) return res.json({ found: false });
-    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone });
+
+    const product = await Product.findOne({ productId: tx.packageId });
+    const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00'; // safe fallback if a product was deleted after being sold
+
+    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone, uptimeLimit });
   } catch (err) {
     console.error('POST /orders/claim-next failed:', err.message);
     res.status(500).json({ found: false });
@@ -222,7 +243,8 @@ router.post('/vouchers/recover', async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (tx && tx.hotspotUsername) {
-      const hours = PACKAGE_HOURS_LABEL[tx.packageId] || '';
+      const product = await Product.findOne({ productId: tx.packageId });
+      const hours = product ? msToLabel(product.durationMs) : '';
       const message = `NETGHWiFi\nRecovered Code: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nKeep it safe!`;
       await sendSms(phone, message).catch(err => console.error('recover SMS failed:', err.message));
     }
@@ -246,9 +268,13 @@ router.get('/orders/expired', async (req, res) => {
       hotspotUsername: { $ne: null }
     }).select('reference hotspotUsername packageId createdAt');
 
+    const products = await Product.find({}).select('productId durationMs');
+    const durationMap = {};
+    products.forEach(p => { durationMap[p.productId] = p.durationMs; });
+
     const toExpire = candidates
       .filter(tx => {
-        const durationMs = PACKAGE_DURATION_MS[tx.packageId];
+        const durationMs = durationMap[tx.packageId];
         if (!durationMs) return false;
         return (now - tx.createdAt.getTime()) > durationMs;
       })

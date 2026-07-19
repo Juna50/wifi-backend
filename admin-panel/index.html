@@ -76,7 +76,15 @@
 
   #shell { display:none; }
   .layout { display:flex; min-height:100vh; }
-  .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; }
+  .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; transition:width .2s ease; position:relative; }
+  .rail-toggle { display:none; position:absolute; top:14px; right:-13px; width:26px; height:26px; border-radius:50%; background:var(--blue); border:2px solid var(--sidebar); color:#fff; cursor:pointer; align-items:center; justify-content:center; z-index:5; }
+  body.sidebar-expand-lg .rail-toggle { display:flex; }
+  body.sidebar-expand-lg.sidebar-collapsed .sidebar { width:60px; }
+  body.sidebar-expand-lg.sidebar-collapsed .sidebar .brand span,
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item .label { display:none; }
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item { text-align:center; padding:11px 0; }
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item svg { margin-right:0; }
+  body.sidebar-expand-lg.sidebar-collapsed .rail-toggle svg { transform:rotate(180deg); }
   .sidebar .brand { color:#fff; font-weight:800; font-size:16px; padding:0 18px 18px; }
   .nav-item { display:block; width:100%; text-align:left; background:none; border:none; color:rgba(255,255,255,0.75); padding:11px 18px; font-size:13px; font-weight:600; cursor:pointer; border-radius:0; }
   .nav-item:hover { background:rgba(255,255,255,0.06); }
@@ -110,6 +118,13 @@
   .voucher-card .code { font-size:18px; font-weight:800; letter-spacing:1px; color:var(--blue); margin:4px 0; }
   .voucher-card .pkg, .voucher-card .brand { font-size:11px; color:var(--muted); }
 
+  .product-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--input); text-align:center; }
+  .product-card img { width:100%; height:90px; object-fit:cover; border-radius:8px; margin-bottom:8px; background:var(--card); }
+  .product-card .p-name { font-weight:700; font-size:14px; }
+  .product-card .p-price { color:var(--blue); font-weight:800; font-size:16px; margin:4px 0; }
+  .product-card .p-meta { font-size:11px; color:var(--muted); margin-bottom:8px; }
+  .product-card.inactive { opacity:0.5; }
+
   .checkline { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
   .checkline input { width:auto; margin:0; }
   .tab-panel { display:none; }
@@ -129,7 +144,7 @@
   }
 </style>
 </head>
-<body>
+<body class="sidebar-expand-lg">
 
 <div id="login-gate">
   <div class="login-card">
@@ -152,19 +167,23 @@
   <div class="layout">
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="sidebar" id="sidebar">
-      <div class="brand"><img src="assets/logo.png" alt="NETGHWiFi">NETGHWiFi</div>
-      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</button>
-      <button class="nav-item" data-tab="billing" onclick="showTab('billing')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>Billing</button>
-      <button class="nav-item" data-tab="payments" onclick="showTab('payments')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Payments</button>
-      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"></path><path d="M12 6v2M12 16v2M12 11v2"></path></svg>Vouchers</button>
-      <button class="nav-item" data-tab="customers" onclick="showTab('customers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Customers</button>
-      <button class="nav-item" data-tab="sms" onclick="showTab('sms')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.38 8.5 8.5 0 0 1-4-1L3 20l1.12-5.5A8.5 8.5 0 1 1 21 11.5z"></path></svg>SMS</button>
-      <button class="nav-item" data-tab="live" onclick="showTab('live')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>Monitoring</button>
-      <button class="nav-item" data-tab="reports" onclick="showTab('reports')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg>Reports</button>
-      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>Activity Logs</button>
-      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg>Users</button>
-      <button class="nav-item role-admin-only" data-tab="terminal" onclick="showTab('terminal')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Terminal</button>
-      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</button>
+      <div class="brand"><img src="assets/logo.png" alt="NETGHWiFi"><span>NETGHWiFi</span></div>
+      <button class="rail-toggle" onclick="toggleRail()" title="Collapse sidebar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="label">Dashboard</span></button>
+      <button class="nav-item" data-tab="billing" onclick="showTab('billing')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg><span class="label">Billing</span></button>
+      <button class="nav-item" data-tab="payments" onclick="showTab('payments')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg><span class="label">Payments</span></button>
+      <button class="nav-item role-admin-only" data-tab="products" onclick="showTab('products')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg><span class="label">Products</span></button>
+      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"></path><path d="M12 6v2M12 16v2M12 11v2"></path></svg><span class="label">Vouchers</span></button>
+      <button class="nav-item" data-tab="customers" onclick="showTab('customers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span class="label">Customers</span></button>
+      <button class="nav-item" data-tab="sms" onclick="showTab('sms')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.38 8.5 8.5 0 0 1-4-1L3 20l1.12-5.5A8.5 8.5 0 1 1 21 11.5z"></path></svg><span class="label">SMS</span></button>
+      <button class="nav-item" data-tab="live" onclick="showTab('live')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg><span class="label">Monitoring</span></button>
+      <button class="nav-item" data-tab="reports" onclick="showTab('reports')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg><span class="label">Reports</span></button>
+      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg><span class="label">Activity Logs</span></button>
+      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg><span class="label">Users</span></button>
+      <button class="nav-item role-admin-only" data-tab="terminal" onclick="showTab('terminal')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg><span class="label">Terminal</span></button>
+      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span class="label">Settings</span></button>
     </div>
 
     <div class="main">
@@ -283,6 +302,49 @@
               <tbody id="payments-body"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div class="tab-panel" id="tab-products">
+        <div class="card">
+          <h2>Add Product</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            <strong>productId</strong> must exactly match (or become) a router hotspot user profile name.
+            Creating a product auto-queues a Terminal command to create that profile - confirm it ran in
+            Terminal history before selling this package.
+          </p>
+          <div class="row">
+            <div><label>Product ID (router profile name)</label><input id="pd-productid" placeholder="e.g. 6 Hours"></div>
+            <div><label>Display Name</label><input id="pd-name" placeholder="e.g. 6 Hours"></div>
+          </div>
+          <div class="row">
+            <div><label>Price (GHS)</label><input id="pd-price" type="number" step="0.01"></div>
+            <div><label>Duration (hours)</label><input id="pd-duration" type="number" step="0.1" placeholder="e.g. 6"></div>
+            <div><label>Type</label><select id="pd-type"><option value="limited">Limited</option><option value="unlimited">Unlimited</option><option value="trial">Trial</option></select></div>
+          </div>
+          <div class="row">
+            <div><label>Data Amount</label><input id="pd-data" placeholder="e.g. Time-based, 5 GB, Unlimited" value="Time-based"></div>
+            <div><label>Speed</label><input id="pd-speed" placeholder="e.g. 15 Mbps" value="15 Mbps"></div>
+            <div><label>Rate Limit (RouterOS)</label><input id="pd-ratelimit" placeholder="e.g. 5M/5M" value="5M/5M"></div>
+          </div>
+          <div class="row">
+            <div><label>Badge (optional)</label><input id="pd-badge" placeholder="e.g. SPECIAL OFFER"></div>
+            <div><label>Features (comma-separated)</label><input id="pd-features" placeholder="HD Streaming, Video Calls"></div>
+          </div>
+          <label>Image (optional, under ~500KB)</label>
+          <input type="file" id="pd-image" accept="image/*">
+          <img id="pd-image-preview" style="display:none;max-width:120px;border-radius:8px;margin-bottom:12px;">
+          <button onclick="createProduct()">Add Product</button>
+          <div id="pd-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>
+            Catalog <button class="secondary" style="float:right;" onclick="loadProducts()">Refresh</button>
+            <button class="secondary" style="float:right;margin-right:8px;" onclick="seedDefaultProducts()">Seed Defaults (one-time)</button>
+          </h2>
+          <div class="voucher-grid" id="products-grid"></div>
         </div>
       </div>
 
@@ -476,6 +538,14 @@
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('open');
   }
+  function toggleRail() {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('ngw-admin-rail', collapsed ? '1' : '0'); } catch (e) {}
+  }
+  (function () {
+    let r; try { r = localStorage.getItem('ngw-admin-rail'); } catch (e) {}
+    if (r === '1') document.body.classList.add('sidebar-collapsed');
+  })();
 
   function authHeaders(extra) {
     return Object.assign({ 'x-admin-key': adminKey }, extra || {});
@@ -516,6 +586,8 @@
     document.getElementById('page-title').textContent = document.querySelector('.nav-item[data-tab="' + name + '"]').textContent.trim();
     closeSidebar();
     if (name === 'dashboard') loadDashboard();
+    if (name === 'products') loadProducts();
+    if (name === 'vouchers') loadProducts();
     if (name === 'billing') loadBilling();
     if (name === 'payments') loadPayments('online');
     if (name === 'customers') loadCustomers();
@@ -802,6 +874,98 @@
   }
 
   // ---- Settings ----
+  // ---- Products ----
+  let productsCache = [];
+  document.addEventListener('DOMContentLoaded', function () {
+    const imgInput = document.getElementById('pd-image');
+    if (imgInput) {
+      imgInput.addEventListener('change', function () {
+        const file = imgInput.files[0];
+        if (!file) return;
+        if (file.size > 500000) { document.getElementById('pd-status').className = 'status error'; document.getElementById('pd-status').textContent = 'Image too large - keep it under ~500KB.'; imgInput.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = function () {
+          document.getElementById('pd-image-preview').src = reader.result;
+          document.getElementById('pd-image-preview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  });
+
+  function loadProducts() {
+    return fetch(API_BASE + '/api/admin/products', { headers: authHeaders() }).then(r => r.json()).then(products => {
+      productsCache = products;
+      document.getElementById('products-grid').innerHTML = products.map(p => `
+        <div class="product-card${p.active ? '' : ' inactive'}">
+          ${p.imageBase64 ? `<img src="${p.imageBase64}">` : ''}
+          <div class="p-name">${p.name}</div>
+          <div class="p-price">GHS ${p.price.toFixed(2)}</div>
+          <div class="p-meta">${p.productId} &middot; ${p.type}${p.active ? '' : ' &middot; INACTIVE'}</div>
+          <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
+      populateVoucherPackageDropdown(products);
+      return products;
+    }).catch(() => {});
+  }
+
+  function populateVoucherPackageDropdown(products) {
+    const sel = document.getElementById('gen-package');
+    if (!sel) return;
+    const active = products.filter(p => p.active);
+    if (active.length === 0) return; // keep whatever static options exist rather than leave it empty
+    sel.innerHTML = active.map(p => `<option value="${p.productId}">${p.name} (GHS ${p.price.toFixed(2)})</option>`).join('');
+  }
+
+  function createProduct() {
+    const productId = document.getElementById('pd-productid').value.trim();
+    const name = document.getElementById('pd-name').value.trim();
+    const price = parseFloat(document.getElementById('pd-price').value) || 0;
+    const hours = parseFloat(document.getElementById('pd-duration').value);
+    const type = document.getElementById('pd-type').value;
+    const dataAmount = document.getElementById('pd-data').value.trim();
+    const speed = document.getElementById('pd-speed').value.trim();
+    const rateLimit = document.getElementById('pd-ratelimit').value.trim();
+    const badge = document.getElementById('pd-badge').value.trim();
+    const features = document.getElementById('pd-features').value.split(',').map(s => s.trim()).filter(Boolean);
+    const imgPreview = document.getElementById('pd-image-preview');
+    const imageBase64 = imgPreview.style.display !== 'none' ? imgPreview.src : undefined;
+    const statusEl = document.getElementById('pd-status');
+
+    if (!productId || !name || !hours) { statusEl.className = 'status error'; statusEl.textContent = 'Product ID, name, and duration are required.'; return; }
+
+    statusEl.className = 'status'; statusEl.textContent = 'Creating\u2026';
+    fetch(API_BASE + '/api/admin/products', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ productId, name, price, durationMs: hours * 60 * 60 * 1000, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
+    }).then(r => r.json()).then(data => {
+      if (data.product) {
+        statusEl.className = 'status ok'; statusEl.textContent = data.message;
+        ['pd-productid','pd-name','pd-price','pd-duration','pd-badge','pd-features'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('pd-image').value = ''; document.getElementById('pd-image-preview').style.display = 'none';
+        loadProducts();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function toggleProductActive(id, makeActive) {
+    if (makeActive) {
+      fetch(API_BASE + '/api/admin/products/' + id, {
+        method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ active: true })
+      }).then(loadProducts);
+    } else {
+      if (!confirm('Deactivate this product? It will disappear from the customer portal immediately.')) return;
+      fetch(API_BASE + '/api/admin/products/' + id + '/deactivate', { method: 'POST', headers: authHeaders() }).then(loadProducts);
+    }
+  }
+
+  function seedDefaultProducts() {
+    if (!confirm('Seed the 7 default packages? This only works if the catalog is currently empty.')) return;
+    fetch(API_BASE + '/api/admin/products/seed-defaults', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { alert(data.message); loadProducts(); })
+      .catch(() => alert('Network error.'));
+  }
+
   // ---- Terminal ----
   function sendTerminalCommand() {
     const command = document.getElementById('term-command').value.trim();

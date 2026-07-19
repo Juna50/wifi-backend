@@ -17,7 +17,7 @@ const path = require('path');
 
 const app = express();
 app.use(cors()); // fine to leave open - only your router/portal call this API, nothing sensitive is exposed
-app.use(express.json());
+app.use(express.json({ limit: '2mb' })); // raised from the 100kb default to fit base64 product images
 
 const ordersRouter = require('./routes/orders');
 const adminRouter = require('./routes/admin');

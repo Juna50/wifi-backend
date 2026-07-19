@@ -7,7 +7,8 @@ const RouterCommand = require('../models/RouterCommand');
 const AdminUser = require('../models/AdminUser');
 const ActivityLog = require('../models/ActivityLog');
 const Settings = require('../models/Settings');
-const { PACKAGE_PRICES_GHS, PACKAGE_DURATION_MS } = require('../packages');
+const Product = require('../models/Product');
+const { msToRouterOSDuration } = require('../durationFormat');
 const { sendBulkSms } = require('../sms');
 const { auth, requireRole } = require('../authMiddleware');
 
@@ -198,10 +199,11 @@ router.post('/admin/vouchers/generate', auth, requireRole('admin', 'cashier'), a
   try {
     const { packageId, quantity } = req.body;
     const qty = Math.min(Math.max(parseInt(quantity, 10) || 0, 1), 50);
-    const priceGHS = PACKAGE_PRICES_GHS[packageId];
-    if (!priceGHS && packageId !== 'test') {
-      return res.status(400).json({ message: 'Unknown package - check spelling matches your router profile exactly' });
+    const product = await Product.findOne({ productId: packageId, active: true });
+    if (!product) {
+      return res.status(400).json({ message: 'Unknown or inactive package - check the Products tab' });
     }
+    const priceGHS = product.price;
 
     const creates = Array.from({ length: qty }, () => {
       const reference = genRef();
@@ -294,9 +296,12 @@ router.get('/admin/sms/expiring-soon', auth, async (req, res) => {
     const hoursAhead = parseFloat(req.query.hours) || 2;
     const candidates = await Transaction.find({ synced: true, expired: false, phone: { $ne: 'ADMIN-GENERATED' } })
       .select('phone packageId createdAt hotspotUsername');
+    const products = await Product.find({}).select('productId durationMs');
+    const durationMap = {};
+    products.forEach(p => { durationMap[p.productId] = p.durationMs; });
     const now = Date.now();
     const soon = candidates.filter(tx => {
-      const durationMs = PACKAGE_DURATION_MS[tx.packageId];
+      const durationMs = durationMap[tx.packageId];
       if (!durationMs) return false;
       const remainingMs = tx.createdAt.getTime() + durationMs - now;
       return remainingMs > 0 && remainingMs <= hoursAhead * 60 * 60 * 1000;
@@ -497,6 +502,134 @@ router.post('/terminal/:id/result', async (req, res) => {
   } catch (err) {
     console.error('POST /terminal/:id/result failed:', err.message);
     res.status(500).json({ message: 'Could not store result' });
+  }
+});
+
+// ===========================================================================
+// PRODUCTS - the editable package catalog. This replaces the old static
+// packages.js/router-hardcoded-map approach that caused repeated drift bugs.
+//
+// IMPORTANT: productId here still has to match a real RouterOS hotspot user
+// profile name for vouchers to actually work. Creating a product here does
+// NOT create that on its own - but it DOES auto-queue a Terminal command to
+// create it, via the existing remote command system, closing most of that
+// gap automatically. Confirm it actually ran (check Terminal history) before
+// relying on a brand new product.
+// ===========================================================================
+function sanitizeForRouterOS(str) {
+  return String(str).replace(/["\\]/g, ''); // strip quotes/backslashes - this gets embedded in a RouterOS command string
+}
+
+router.get('/admin/products', auth, async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ sortOrder: 1, createdAt: 1 });
+    res.json(products);
+  } catch (err) {
+    console.error('GET /admin/products failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+router.post('/admin/products', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { productId, name, category, price, durationMs, rateLimit, imageBase64, isTrial, dataAmount, speed, badge, features, type } = req.body;
+    if (!productId || !name || !durationMs) {
+      return res.status(400).json({ message: 'productId, name, and durationMs are required' });
+    }
+    if (imageBase64 && imageBase64.length > 700000) { // ~500KB after base64 overhead
+      return res.status(400).json({ message: 'Image too large - please use a smaller file (under ~500KB)' });
+    }
+
+    const product = await Product.create({
+      productId, name, category: category || 'General',
+      price: price || 0, durationMs, rateLimit: rateLimit || '5M/5M',
+      imageBase64, isTrial: !!isTrial,
+      dataAmount: dataAmount || 'Time-based', speed: speed || '15 Mbps',
+      badge: badge || undefined, features: Array.isArray(features) ? features : [],
+      type: type || 'limited'
+    });
+
+    // Auto-queue the matching hotspot profile creation on the router.
+    const safeId = sanitizeForRouterOS(productId);
+    const safeRate = sanitizeForRouterOS(rateLimit || '5M/5M');
+    const uptimeStr = msToRouterOSDuration(durationMs);
+    const command = `/ip hotspot user profile add name="${safeId}" address-pool="NETGHWiFi Hotspot Pool" session-timeout=${uptimeStr} rate-limit="${safeRate}"`;
+    await RouterCommand.create({ command, requestedBy: req.actor.username });
+
+    logActivity(req.actor.username, 'products.create', { productId });
+    res.json({ product, message: 'Product created. A command to create the matching router profile has been queued - check Terminal history in ~10s to confirm it ran.' });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ message: 'A product with that productId already exists' });
+    console.error('POST /admin/products failed:', err.message);
+    res.status(500).json({ message: 'Could not create product' });
+  }
+});
+
+router.patch('/admin/products/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { name, category, price, durationMs, rateLimit, imageBase64, active, sortOrder, dataAmount, speed, badge, features, type } = req.body;
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Not found' });
+
+    if (name !== undefined) product.name = name;
+    if (category !== undefined) product.category = category;
+    if (price !== undefined) product.price = price;
+    if (durationMs !== undefined) product.durationMs = durationMs;
+    if (rateLimit !== undefined) product.rateLimit = rateLimit;
+    if (imageBase64 !== undefined) {
+      if (imageBase64 && imageBase64.length > 700000) return res.status(400).json({ message: 'Image too large' });
+      product.imageBase64 = imageBase64;
+    }
+    if (active !== undefined) product.active = active;
+    if (sortOrder !== undefined) product.sortOrder = sortOrder;
+    if (dataAmount !== undefined) product.dataAmount = dataAmount;
+    if (speed !== undefined) product.speed = speed;
+    if (badge !== undefined) product.badge = badge;
+    if (features !== undefined) product.features = Array.isArray(features) ? features : [];
+    if (type !== undefined) product.type = type;
+
+    await product.save();
+    logActivity(req.actor.username, 'products.edit', { productId: product.productId });
+    res.json(product);
+  } catch (err) {
+    console.error('PATCH /admin/products failed:', err.message);
+    res.status(500).json({ message: 'Could not update product' });
+  }
+});
+
+router.post('/admin/products/:id/deactivate', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, { active: false }, { new: true });
+    if (!product) return res.status(404).json({ message: 'Not found' });
+    logActivity(req.actor.username, 'products.deactivate', { productId: product.productId });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST deactivate product failed:', err.message);
+    res.status(500).json({ message: 'Could not deactivate' });
+  }
+});
+
+router.post('/admin/products/seed-defaults', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const existingCount = await Product.countDocuments({});
+    if (existingCount > 0) {
+      return res.status(400).json({ message: 'Products already exist - seed only runs on an empty collection, to avoid duplicating or overwriting real data.' });
+    }
+    const defaults = [
+      { productId: '5 Hours', name: '5 Hours', dataAmount: 'Time-based', durationMs: 5 * 60 * 60 * 1000, speed: '15 Mbps', price: 5, type: 'limited', features: ['1 Device'], sortOrder: 0 },
+      { productId: '12 Hours', name: '12 Hours', dataAmount: 'Time-based', durationMs: 12 * 60 * 60 * 1000, speed: '15 Mbps', price: 8, type: 'limited', features: ['1 Device'], sortOrder: 1 },
+      { productId: '1 Day Falaaa', name: '1 Day Falaaa', dataAmount: '5 GB', durationMs: 24 * 60 * 60 * 1000, speed: '15 Mbps', price: 12, type: 'limited', badge: 'SPECIAL OFFER', features: ['8K Streaming', 'Video Calls', 'Super Fast Download', '1 Device'], sortOrder: 2 },
+      { productId: '2 Days Turbo Max', name: '2 Days Turbo Max', dataAmount: '20 GB', durationMs: 48 * 60 * 60 * 1000, speed: '15 Mbps', price: 15, type: 'limited', badge: 'SPECIAL OFFER', features: ['4K Streaming', 'Video Calls', 'Fast Download', '1 Device'], sortOrder: 3 },
+      { productId: '1Hr Unlimited', name: '1Hr Unlimited', dataAmount: 'Unlimited', durationMs: 60 * 60 * 1000, speed: '15 Mbps', price: 3, type: 'unlimited', badge: 'UNLIMITED', features: ['HD Streaming', 'Video Calls', 'Fast Download', '1 Device'], sortOrder: 4 },
+      { productId: '24Hr Unlimited', name: '24Hr Unlimited', dataAmount: 'Unlimited', durationMs: 24 * 60 * 60 * 1000, speed: '15 Mbps', price: 10, type: 'unlimited', badge: 'UNLIMITED', features: ['HD Streaming', 'Video Calls', 'Fast Download', '1 Device'], sortOrder: 5 },
+      { productId: 'test', name: '5 Min Trial', dataAmount: 'Limited', durationMs: 5 * 60 * 1000, speed: '15 Mbps', price: 0, type: 'trial', badge: 'FREE', features: [], isTrial: true, sortOrder: 6 }
+    ];
+    await Product.insertMany(defaults);
+    logActivity(req.actor.username, 'products.seed_defaults', { count: defaults.length });
+    res.json({ message: 'Seeded ' + defaults.length + ' default products.', count: defaults.length });
+  } catch (err) {
+    console.error('POST /admin/products/seed-defaults failed:', err.message);
+    res.status(500).json({ message: 'Could not seed products' });
   }
 });
 

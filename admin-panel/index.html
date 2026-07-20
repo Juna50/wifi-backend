@@ -184,6 +184,7 @@
       <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg><span class="label">Users</span></button>
       <button class="nav-item role-admin-only" data-tab="terminal" onclick="showTab('terminal')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg><span class="label">Terminal</span></button>
       <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span class="label">Settings</span></button>
+      <button class="nav-item" onclick="logout()" style="color:var(--red);margin-top:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg><span class="label">Logout</span></button>
     </div>
 
     <div class="main">
@@ -481,6 +482,7 @@
             (active users, resource stats), use Monitoring instead. For failure detail, check
             <code>/log print</code> on the router directly. Every command is logged to Activity Logs.
           </p>
+          <div id="term-console" style="background:#0a0e14;color:#7ee787;font-family:monospace;font-size:12.5px;border-radius:8px;padding:12px;height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border);margin-bottom:12px;">Terminal ready. Commands run on the router and results appear here.</div>
           <input id="term-command" placeholder="/ip hotspot user disable [find name=&quot;u12345678&quot;]" style="font-family:monospace;">
           <button onclick="sendTerminalCommand()" id="term-send-btn">Send Command</button>
           <div id="term-status" class="status"></div>
@@ -506,6 +508,48 @@
           <textarea id="set-reminder-msg"></textarea>
           <button onclick="saveSettings()">Save</button>
           <div id="settings-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>Maintenance Mode</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            When on, the login page shows a maintenance notice instead of the normal signup/voucher flow.
+            Controlled entirely from here - no changes to the portal page are needed.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-maintenance-on">
+            <label style="margin:0;">Enable maintenance mode</label>
+          </div>
+          <label>Maintenance message shown to users</label>
+          <textarea id="set-maintenance-msg"></textarea>
+          <button onclick="saveSiteSettings()">Save</button>
+          <div id="site-settings-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ad Banner</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Toggle the sponsored ad slideshow on the login page.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-ad-on">
+            <label style="margin:0;">Show ad banner</label>
+          </div>
+          <button onclick="saveSiteSettings()">Save</button>
+        </div>
+
+        <div class="card">
+          <h2>Announcement Banner</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            The scrolling marquee strip on the login page. One message per line.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-announce-on">
+            <label style="margin:0;">Show announcement banner</label>
+          </div>
+          <label>Messages (one per line)</label>
+          <textarea id="set-announce-msgs" rows="4"></textarea>
+          <button onclick="saveSiteSettings()">Save</button>
         </div>
       </div>
 
@@ -565,6 +609,17 @@
         showTab('dashboard');
       })
       .catch(err => { document.getElementById('login-status').textContent = err.message; });
+  }
+
+  function logout() {
+    if (!confirm('Sign out of the admin panel?')) return;
+    adminKey = '';
+    myRole = 'cashier';
+    document.getElementById('admin-key-input').value = '';
+    document.getElementById('login-status').textContent = '';
+    document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = '');
+    document.getElementById('shell').style.display = 'none';
+    document.getElementById('login-gate').style.display = 'flex';
   }
 
   function detectRole() {
@@ -995,34 +1050,58 @@
   }
 
   // ---- Terminal ----
+  function termLog(line) {
+    const el = document.getElementById('term-console');
+    const stamp = new Date().toLocaleTimeString();
+    el.textContent += '\n[' + stamp + '] ' + line;
+    el.scrollTop = el.scrollHeight;
+  }
   function sendTerminalCommand() {
     const command = document.getElementById('term-command').value.trim();
     const statusEl = document.getElementById('term-status'), btn = document.getElementById('term-send-btn');
     if (!command) { statusEl.className = 'status error'; statusEl.textContent = 'Enter a command first.'; return; }
     if (!confirm('Run this on your live router?\n\n' + command + '\n\nThis executes immediately - there is no undo.')) return;
     btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Queued - waiting for router to pick it up (~5s)\u2026';
+    termLog('$ ' + command);
+    termLog('  queued, waiting for router to poll and claim it\u2026');
     fetch(API_BASE + '/api/admin/terminal/execute', {
       method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ command })
     }).then(r => r.json()).then(data => {
-      if (!data.id) { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed to queue.'; btn.disabled = false; return; }
+      if (!data.id) {
+        statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed to queue.';
+        termLog('  ERROR: ' + (data.message || 'failed to queue command'));
+        btn.disabled = false; return;
+      }
       document.getElementById('term-command').value = '';
       pollTerminalResult(data.id, statusEl, btn);
-    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; btn.disabled = false; });
+    }).catch(() => {
+      statusEl.className = 'status error'; statusEl.textContent = 'Network error.';
+      termLog('  ERROR: network error while queuing command.');
+      btn.disabled = false;
+    });
   }
   function pollTerminalResult(id, statusEl, btn) {
     let attempts = 0;
+    const maxAttempts = 30; // ~60s - router polls /terminal/next roughly every 5s
     const timer = setInterval(() => {
       attempts++;
       fetch(API_BASE + '/api/admin/terminal/history', { headers: authHeaders() }).then(r => r.json()).then(rows => {
         const row = rows.find(r => r._id === id);
-        if (row && row.status !== 'pending' && row.status !== 'claimed') {
+        if (!row) return; // history not yet reflecting it - keep waiting
+        if (row.status === 'claimed' && attempts === 1) {
+          termLog('  claimed by router, executing\u2026');
+        }
+        if (row.status !== 'pending' && row.status !== 'claimed') {
           clearInterval(timer); btn.disabled = false;
           statusEl.className = row.status === 'done' ? 'status ok' : 'status error';
           statusEl.textContent = row.status === 'done' ? 'Command ran successfully.' : 'Command failed - check /log on the router.';
+          termLog(row.status === 'done' ? '  \u2713 done' : '  \u2717 error - check /log print on the router for detail');
           loadTerminalHistory();
-        } else if (attempts >= 20) {
+        } else if (attempts >= maxAttempts) {
           clearInterval(timer); btn.disabled = false;
-          statusEl.className = 'status error'; statusEl.textContent = 'No response yet - confirm the terminal poll script is installed and running.';
+          statusEl.className = 'status error';
+          statusEl.textContent = 'No response yet - confirm the terminal poll script is installed and running on the router.';
+          termLog('  \u26A0 no response after ' + (maxAttempts * 2) + 's - the command is still queued as "' + row.status + '". Check that the router\u2019s /terminal/next polling script is installed and running.');
         }
       }).catch(() => {});
     }, 2000);
@@ -1038,6 +1117,12 @@
   function loadSettings() {
     fetch(API_BASE + '/api/admin/settings', { headers: authHeaders() }).then(r => r.json()).then(s => {
       document.getElementById('set-reminder-msg').value = s.reminderMessage || 'Your NETGHWiFi voucher expires soon. Buy another to stay connected!';
+      document.getElementById('set-maintenance-on').checked = !!s.maintenanceMode;
+      document.getElementById('set-maintenance-msg').value = s.maintenanceMessage || "We're down for maintenance right now. Please check back shortly.";
+      document.getElementById('set-ad-on').checked = s.adBannerEnabled !== false;
+      document.getElementById('set-announce-on').checked = s.announcementEnabled !== false;
+      const msgs = Array.isArray(s.announcementMessages) ? s.announcementMessages : [];
+      document.getElementById('set-announce-msgs').value = msgs.join('\n');
     }).catch(() => {});
   }
   function saveSettings() {
@@ -1046,6 +1131,25 @@
     fetch(API_BASE + '/api/admin/settings', {
       method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ reminderMessage })
     }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+
+  // ---- Maintenance mode / ad banner / announcement banner (login page) ----
+  function saveSiteSettings() {
+    const statusEl = document.getElementById('site-settings-status');
+    const announcementMessages = document.getElementById('set-announce-msgs').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    const payload = {
+      maintenanceMode: document.getElementById('set-maintenance-on').checked,
+      maintenanceMessage: document.getElementById('set-maintenance-msg').value,
+      adBannerEnabled: document.getElementById('set-ad-on').checked,
+      announcementEnabled: document.getElementById('set-announce-on').checked,
+      announcementMessages
+    };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved. The login page picks this up on next load.'; })
       .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
   }
 </script>

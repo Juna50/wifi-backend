@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const Transaction = require('../models/Transaction');
 const Product = require('../models/Product');
+const Settings = require('../models/Settings');
 const { sendSms } = require('../sms');
 const { msToRouterOSDuration, msToLabel } = require('../durationFormat');
 
@@ -11,6 +12,41 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 function genRef() {
   return 'ngw_' + crypto.randomBytes(8).toString('hex');
 }
+
+// --- Public site config, used by login.html --------------------------------
+// Lets the backend control maintenance mode, the ad banner, and the
+// announcement banner without editing/redeploying the static portal page.
+// Deliberately only exposes these few keys (not the full Settings
+// collection) since this endpoint is unauthenticated and hit by every
+// captive-portal page load.
+const SITE_CONFIG_DEFAULTS = {
+  maintenanceMode: false,
+  maintenanceMessage: "We're down for maintenance right now. Please check back shortly.",
+  adBannerEnabled: true,
+  announcementEnabled: true,
+  announcementMessages: [
+    '\uD83D\uDCCD For Enquires WhatsApp: 0545837116',
+    '\uD83D\uDCB8 Buy Normal Data, Airtime, Waec Checker & More',
+    '\u26A1 Fast delivery \u2022 Secure payments \u2022 24/7 support'
+  ]
+};
+const SITE_CONFIG_KEYS = Object.keys(SITE_CONFIG_DEFAULTS);
+
+router.get('/site-config', async (req, res) => {
+  try {
+    const rows = await Settings.find({ key: { $in: SITE_CONFIG_KEYS } });
+    const config = Object.assign({}, SITE_CONFIG_DEFAULTS);
+    rows.forEach(function (r) {
+      if (r.value !== undefined && r.value !== null) config[r.key] = r.value;
+    });
+    res.json(config);
+  } catch (err) {
+    console.error('GET /site-config failed:', err.message);
+    // Fail open with safe defaults - a portal page should never be stuck
+    // unable to render just because this lookup had a hiccup.
+    res.json(SITE_CONFIG_DEFAULTS);
+  }
+});
 
 async function notifyVoucherReady(tx) {
   if (tx.smsSent) return;

@@ -234,10 +234,17 @@ router.post('/router-stats', async (req, res) => {
     const key = req.query.key;
     if (!ADMIN_KEY || key !== ADMIN_KEY) return res.sendStatus(401);
     const { activeUsers, activeCount, totalVoucherAccounts, cpuLoad, freeMemory, totalMemory, uptime } = req.body;
+
+    const existing = await RouterStats.findOne({ key: 'latest' });
+    const history = existing ? existing.history || [] : [];
+    history.push({ timestamp: new Date(), activeCount: activeCount || 0, cpuLoad: cpuLoad || 0 });
+    while (history.length > 30) history.shift();
+
     await RouterStats.findOneAndUpdate(
       { key: 'latest' },
       { activeUsers: activeUsers || [], activeCount: activeCount || 0, totalVoucherAccounts: totalVoucherAccounts || 0,
-        cpuLoad: cpuLoad || 0, freeMemory: freeMemory || 0, totalMemory: totalMemory || 0, uptime: uptime || '', reportedAt: new Date() },
+        cpuLoad: cpuLoad || 0, freeMemory: freeMemory || 0, totalMemory: totalMemory || 0, uptime: uptime || '', reportedAt: new Date(),
+        history },
       { upsert: true }
     );
     res.json({ ok: true });

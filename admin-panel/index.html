@@ -419,6 +419,7 @@
             <div class="stat-box"><div class="num" id="stat-uptime">-</div><div class="lbl">Router Uptime</div></div>
           </div>
           <div id="stats-updated" class="status"></div>
+          <div id="chart-live-trend" style="margin:10px 0 16px;"></div>
           <div style="overflow-x:auto;">
             <table><thead><tr><th>User</th><th>IP</th><th>Session Uptime</th></tr></thead><tbody id="active-body"></tbody></table>
           </div>
@@ -814,6 +815,8 @@
   }
 
   // ---- Live status ----
+  let liveChart = null;
+  let liveRefreshTimer = null;
   function loadStats() {
     fetch(API_BASE + '/api/admin/router-stats', { headers: authHeaders() }).then(r => r.json()).then(s => {
       document.getElementById('stat-active').textContent = s.activeCount ?? '-';
@@ -822,10 +825,35 @@
       document.getElementById('stat-cpu').textContent = (s.cpuLoad ?? '-') + '%';
       document.getElementById('stat-mem').textContent = s.freeMemory ? Math.round(s.freeMemory/1024/1024) + ' MB' : '-';
       document.getElementById('stat-uptime').textContent = s.uptime || '-';
-      document.getElementById('stats-updated').textContent = s.reportedAt ? 'Last updated: ' + new Date(s.reportedAt).toLocaleString() : 'No data yet - install the router stats script.';
+      document.getElementById('stats-updated').textContent = s.reportedAt ? 'Live \u2014 last updated: ' + new Date(s.reportedAt).toLocaleTimeString() : 'No data yet - install the router stats script.';
       document.getElementById('active-body').innerHTML = (s.activeUsers||[]).map(u => `<tr><td>${u.user}</td><td>${u.address}</td><td>${u.uptime}</td></tr>`).join('') ||
         '<tr><td colspan="3" style="color:var(--muted);">No active sessions.</td></tr>';
+      renderLiveChart(s.history || []);
     }).catch(() => {});
+
+    // Auto-refresh every 10s while this tab is open - stops when you leave it.
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = setInterval(() => {
+      if (document.getElementById('tab-live').classList.contains('active')) loadStats();
+      else clearInterval(liveRefreshTimer);
+    }, 10000);
+  }
+
+  function renderLiveChart(history) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const fg = isLight ? '#12232f' : '#e6edf3';
+    const options = {
+      chart: { type: 'line', height: 200, toolbar: { show: false }, foreColor: fg, animations: { easing: 'linear', dynamicAnimation: { speed: 500 } } },
+      series: [{ name: 'Active Users', data: history.map(h => h.activeCount) }],
+      xaxis: { categories: history.map(h => new Date(h.timestamp).toLocaleTimeString().slice(0,5)), labels: { rotate: 0 } },
+      colors: ['#3badf0'],
+      stroke: { curve: 'smooth', width: 2 },
+      dataLabels: { enabled: false },
+      grid: { borderColor: isLight ? '#dbe6ee' : '#262e3a' },
+      markers: { size: 3 }
+    };
+    if (liveChart) liveChart.updateOptions(options);
+    else { liveChart = new ApexCharts(document.getElementById('chart-live-trend'), options); liveChart.render(); }
   }
 
   // ---- Reports ----

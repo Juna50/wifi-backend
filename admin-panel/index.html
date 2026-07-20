@@ -522,8 +522,8 @@
           </div>
           <label>Maintenance message shown to users</label>
           <textarea id="set-maintenance-msg"></textarea>
-          <button onclick="saveSiteSettings()">Save</button>
-          <div id="site-settings-status" class="status"></div>
+          <button onclick="saveMaintenanceSettings()">Save</button>
+          <div id="maintenance-settings-status" class="status"></div>
         </div>
 
         <div class="card">
@@ -535,7 +535,8 @@
             <input type="checkbox" id="set-ad-on">
             <label style="margin:0;">Show ad banner</label>
           </div>
-          <button onclick="saveSiteSettings()">Save</button>
+          <button onclick="saveAdSettings()">Save</button>
+          <div id="ad-settings-status" class="status"></div>
         </div>
 
         <div class="card">
@@ -549,7 +550,8 @@
           </div>
           <label>Messages (one per line)</label>
           <textarea id="set-announce-msgs" rows="4"></textarea>
-          <button onclick="saveSiteSettings()">Save</button>
+          <button onclick="saveAnnouncementSettings()">Save</button>
+          <div id="announce-settings-status" class="status"></div>
         </div>
       </div>
 
@@ -1135,21 +1137,41 @@
   }
 
   // ---- Maintenance mode / ad banner / announcement banner (login page) ----
-  function saveSiteSettings() {
-    const statusEl = document.getElementById('site-settings-status');
+  // Each card saves ONLY its own key(s) via a targeted PATCH, so saving one
+  // card can never silently overwrite another's settings.
+  function saveMaintenanceSettings() {
+    const statusEl = document.getElementById('maintenance-settings-status');
+    const payload = {
+      maintenanceMode: document.getElementById('set-maintenance-on').checked,
+      maintenanceMessage: document.getElementById('set-maintenance-msg').value
+    };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+  function saveAdSettings() {
+    const statusEl = document.getElementById('ad-settings-status');
+    const payload = { adBannerEnabled: document.getElementById('set-ad-on').checked };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+  function saveAnnouncementSettings() {
+    const statusEl = document.getElementById('announce-settings-status');
     const announcementMessages = document.getElementById('set-announce-msgs').value
       .split('\n').map(s => s.trim()).filter(Boolean);
     const payload = {
-      maintenanceMode: document.getElementById('set-maintenance-on').checked,
-      maintenanceMessage: document.getElementById('set-maintenance-msg').value,
-      adBannerEnabled: document.getElementById('set-ad-on').checked,
       announcementEnabled: document.getElementById('set-announce-on').checked,
       announcementMessages
     };
     statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
     fetch(API_BASE + '/api/admin/settings', {
       method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
-    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved. The login page picks this up on next load.'; })
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
       .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
   }
 </script>

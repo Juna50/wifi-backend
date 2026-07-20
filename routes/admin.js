@@ -434,6 +434,94 @@ router.patch('/admin/settings', auth, requireRole('admin'), async (req, res) => 
 });
 
 // ===========================================================================
+// AD BANNER — images uploaded here are what the login page's ad slideshow
+// shows. Stored as base64 (same pattern as product images) in the generic
+// Settings store under the key 'adBannerSlides'. The public image bytes are
+// served separately, via GET /api/ad-banner/:id/image in orders.js, so this
+// endpoint only ever returns/accepts lightweight metadata plus one image at
+// a time - never the whole gallery's base64 in one response.
+// ===========================================================================
+const AD_BANNER_MAX_SLIDES = 8;
+const AD_BANNER_MAX_IMAGE_LEN = 700000; // ~500KB after base64 overhead - same cap as product images
+
+router.get('/admin/ad-banner', auth, async (req, res) => {
+  try {
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    res.json(slides
+      .slice()
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map(s => ({ id: s.id, link: s.link, alt: s.alt, sortOrder: s.sortOrder })));
+  } catch (err) {
+    console.error('GET /admin/ad-banner failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+router.post('/admin/ad-banner', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { imageBase64, link, alt } = req.body;
+    if (!imageBase64) return res.status(400).json({ message: 'imageBase64 is required' });
+    if (imageBase64.length > AD_BANNER_MAX_IMAGE_LEN) {
+      return res.status(400).json({ message: 'Image too large - please use a smaller file (under ~500KB)' });
+    }
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    if (slides.length >= AD_BANNER_MAX_SLIDES) {
+      return res.status(400).json({ message: `Max ${AD_BANNER_MAX_SLIDES} banner images - delete one before adding another` });
+    }
+    const slide = {
+      id: crypto.randomBytes(8).toString('hex'),
+      imageBase64,
+      link: link || '',
+      alt: alt || 'Ad',
+      sortOrder: slides.length
+    };
+    slides.push(slide);
+    await Settings.findOneAndUpdate({ key: 'adBannerSlides' }, { value: slides }, { upsert: true });
+    logActivity(req.actor.username, 'ad_banner.upload', { id: slide.id });
+    res.json({ id: slide.id, link: slide.link, alt: slide.alt, sortOrder: slide.sortOrder });
+  } catch (err) {
+    console.error('POST /admin/ad-banner failed:', err.message);
+    res.status(500).json({ message: 'Could not save image' });
+  }
+});
+
+router.patch('/admin/ad-banner/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { link, alt, sortOrder } = req.body;
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    const slide = slides.find(s => s.id === req.params.id);
+    if (!slide) return res.status(404).json({ message: 'Not found' });
+    if (link !== undefined) slide.link = link;
+    if (alt !== undefined) slide.alt = alt;
+    if (sortOrder !== undefined) slide.sortOrder = sortOrder;
+    await Settings.findOneAndUpdate({ key: 'adBannerSlides' }, { value: slides });
+    logActivity(req.actor.username, 'ad_banner.edit', { id: slide.id });
+    res.json({ id: slide.id, link: slide.link, alt: slide.alt, sortOrder: slide.sortOrder });
+  } catch (err) {
+    console.error('PATCH /admin/ad-banner failed:', err.message);
+    res.status(500).json({ message: 'Could not update' });
+  }
+});
+
+router.delete('/admin/ad-banner/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    const next = slides.filter(s => s.id !== req.params.id);
+    if (next.length === slides.length) return res.status(404).json({ message: 'Not found' });
+    await Settings.findOneAndUpdate({ key: 'adBannerSlides' }, { value: next });
+    logActivity(req.actor.username, 'ad_banner.delete', { id: req.params.id });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /admin/ad-banner failed:', err.message);
+    res.status(500).json({ message: 'Could not delete' });
+  }
+});
+
+// ===========================================================================
 // LEGACY - kept so anything still calling the old endpoint works unchanged
 // ===========================================================================
 router.get('/admin/transactions', auth, async (req, res) => {

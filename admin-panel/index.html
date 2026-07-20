@@ -529,7 +529,8 @@
         <div class="card">
           <h2>Ad Banner</h2>
           <p style="color:var(--muted);font-size:13px;">
-            Toggle the sponsored ad slideshow on the login page.
+            Toggle the sponsored ad slideshow on the login page, and upload the images it rotates through.
+            If no images are uploaded here, the login page falls back to its own built-in defaults.
           </p>
           <div class="checkline">
             <input type="checkbox" id="set-ad-on">
@@ -537,6 +538,20 @@
           </div>
           <button onclick="saveAdSettings()">Save</button>
           <div id="ad-settings-status" class="status"></div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+
+          <label>Upload banner image (under ~500KB, shown at roughly 3:1 width:height)</label>
+          <input type="file" id="ab-image" accept="image/*">
+          <img id="ab-image-preview" style="display:none;max-width:220px;border-radius:8px;margin:8px 0;">
+          <div class="row">
+            <div><label>Link (optional - where a tap goes)</label><input id="ab-link" placeholder="https://wa.me/233545837116"></div>
+            <div><label>Alt text (optional)</label><input id="ab-alt" placeholder="e.g. Buy data bundles"></div>
+          </div>
+          <button onclick="uploadAdBannerImage()" id="ab-upload-btn">Upload Image</button>
+          <div id="ab-upload-status" class="status"></div>
+
+          <div class="voucher-grid" id="ad-banner-grid" style="margin-top:12px;"></div>
         </div>
 
         <div class="card">
@@ -654,7 +669,7 @@
     if (name === 'logs') loadLogs();
     if (name === 'users') loadUsers();
     if (name === 'terminal') loadTerminalHistory();
-    if (name === 'settings') loadSettings();
+    if (name === 'settings') { loadSettings(); loadAdBannerSlides(); }
   }
 
   function badge(s) { return '<span class="badge ' + s + '">' + s + '</span>'; }
@@ -976,6 +991,20 @@
         reader.readAsDataURL(file);
       });
     }
+    const abImgInput = document.getElementById('ab-image');
+    if (abImgInput) {
+      abImgInput.addEventListener('change', function () {
+        const file = abImgInput.files[0];
+        if (!file) return;
+        if (file.size > 500000) { document.getElementById('ab-upload-status').className = 'status error'; document.getElementById('ab-upload-status').textContent = 'Image too large - keep it under ~500KB.'; abImgInput.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = function () {
+          document.getElementById('ab-image-preview').src = reader.result;
+          document.getElementById('ab-image-preview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
   });
 
   function loadProducts() {
@@ -1159,6 +1188,42 @@
       method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
     }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
       .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+
+  // ---- Ad banner image gallery ----
+  function loadAdBannerSlides() {
+    fetch(API_BASE + '/api/admin/ad-banner', { headers: authHeaders() }).then(r => r.json()).then(slides => {
+      document.getElementById('ad-banner-grid').innerHTML = (slides || []).map(s => `
+        <div class="product-card">
+          <img src="${API_BASE}/api/ad-banner/${s.id}/image">
+          <div class="p-meta" style="word-break:break-all;">${s.link ? s.link : '(no link)'}</div>
+          <button class="secondary" style="width:100%;" onclick="deleteAdBannerSlide('${s.id}')">Delete</button>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No images uploaded yet - the login page is using its built-in defaults.</p>';
+    }).catch(() => {});
+  }
+  function uploadAdBannerImage() {
+    const preview = document.getElementById('ab-image-preview');
+    const statusEl = document.getElementById('ab-upload-status');
+    const imageBase64 = preview.style.display !== 'none' ? preview.src : undefined;
+    if (!imageBase64) { statusEl.className = 'status error'; statusEl.textContent = 'Choose an image first.'; return; }
+    const link = document.getElementById('ab-link').value.trim();
+    const alt = document.getElementById('ab-alt').value.trim();
+    statusEl.className = 'status'; statusEl.textContent = 'Uploading\u2026';
+    fetch(API_BASE + '/api/admin/ad-banner', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ imageBase64, link, alt })
+    }).then(r => r.json()).then(data => {
+      if (data.id) {
+        statusEl.className = 'status ok'; statusEl.textContent = 'Uploaded.';
+        document.getElementById('ab-image').value = ''; preview.style.display = 'none';
+        document.getElementById('ab-link').value = ''; document.getElementById('ab-alt').value = '';
+        loadAdBannerSlides();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+  function deleteAdBannerSlide(id) {
+    if (!confirm('Remove this banner image?')) return;
+    fetch(API_BASE + '/api/admin/ad-banner/' + id, { method: 'DELETE', headers: authHeaders() })
+      .then(() => loadAdBannerSlides());
   }
   function saveAnnouncementSettings() {
     const statusEl = document.getElementById('announce-settings-status');

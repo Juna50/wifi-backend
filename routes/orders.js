@@ -34,9 +34,21 @@ const SITE_CONFIG_KEYS = Object.keys(SITE_CONFIG_DEFAULTS);
 
 router.get('/site-config', async (req, res) => {
   try {
-    const rows = await Settings.find({ key: { $in: SITE_CONFIG_KEYS } });
-    const config = Object.assign({}, SITE_CONFIG_DEFAULTS);
+    const rows = await Settings.find({ key: { $in: SITE_CONFIG_KEYS.concat(['adBannerSlides']) } });
+    const config = Object.assign({}, SITE_CONFIG_DEFAULTS, { adBannerSlides: [] });
     rows.forEach(function (r) {
+      if (r.key === 'adBannerSlides') {
+        const slides = Array.isArray(r.value) ? r.value : [];
+        // Only send the lightweight bits (id/link/alt) - the actual image
+        // bytes are fetched separately per-slide via /ad-banner/:id/image so
+        // browsers can cache each one instead of re-downloading base64 with
+        // every single site-config call.
+        config.adBannerSlides = slides
+          .slice()
+          .sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); })
+          .map(function (s) { return { id: s.id, link: s.link || '', alt: s.alt || 'Ad' }; });
+        return;
+      }
       if (r.value !== undefined && r.value !== null) config[r.key] = r.value;
     });
     res.json(config);
@@ -44,7 +56,26 @@ router.get('/site-config', async (req, res) => {
     console.error('GET /site-config failed:', err.message);
     // Fail open with safe defaults - a portal page should never be stuck
     // unable to render just because this lookup had a hiccup.
-    res.json(SITE_CONFIG_DEFAULTS);
+    res.json(Object.assign({}, SITE_CONFIG_DEFAULTS, { adBannerSlides: [] }));
+  }
+});
+
+// Serves one uploaded ad banner image by id. Public (no auth) and cacheable
+// since it's just an image the portal page shows to everyone anyway.
+router.get('/ad-banner/:id/image', async (req, res) => {
+  try {
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    const slide = slides.find(function (s) { return s.id === req.params.id; });
+    if (!slide || !slide.imageBase64) return res.status(404).send('Not found');
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(slide.imageBase64);
+    if (!match) return res.status(415).send('Unsupported image format');
+    res.set('Content-Type', match[1]);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(match[2], 'base64'));
+  } catch (err) {
+    console.error('GET /ad-banner/:id/image failed:', err.message);
+    res.status(500).send('Error');
   }
 });
 

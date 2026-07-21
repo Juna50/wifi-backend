@@ -791,6 +791,7 @@
     ];
     if (t.note) rows.push(['Note', t.note]);
     if (t.createdBy) rows.push(['Created by', t.createdBy]);
+    document.getElementById('voucher-modal-title').textContent = 'Voucher Details';
     document.getElementById('voucher-modal-body').innerHTML =
       (t.hotspotUsername ? `<div class="voucher-code-box">${t.hotspotUsername}</div>` : '<p style="color:var(--muted);font-size:13px;">No voucher code assigned yet - the router hasn\u2019t created this account.</p>') +
       rows.map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
@@ -992,6 +993,7 @@
       document.getElementById('users-body').innerHTML = rows.map(u => `
         <tr><td>${u.username}</td><td>${u.role}</td><td>${u.active ? 'Yes' : 'No'}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td>
         <td>
+          <button class="secondary" onclick="viewUserApiKey('${u.username}')">View Key</button>
           ${u.active
             ? `<button class="danger" onclick="deactivateUser('${u.username}')">Deactivate</button>`
             : `<button class="secondary" onclick="extendUser('${u.username}')">Extend</button>`}
@@ -1029,6 +1031,22 @@
     if (!confirm('Permanently delete ' + username + '? This cannot be undone - their API key stops working immediately.')) return;
     fetch(API_BASE + '/api/admin/users/' + username, { method: 'DELETE', headers: authHeaders() })
       .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function viewUserApiKey(username) {
+    fetch(API_BASE + '/api/admin/users/' + username + '/key', { headers: authHeaders() })
+      .then(r => r.json()).then(data => {
+        if (!data.apiKey) { alert(data.message || 'Could not fetch key.'); return; }
+        document.getElementById('voucher-modal-title').textContent = 'API Key \u2014 ' + data.username;
+        document.getElementById('voucher-modal-body').innerHTML =
+          '<p style="color:var(--muted);font-size:13px;">This is what ' + data.username + ' enters to log into this panel. Keep it private.</p>' +
+          '<div class="voucher-code-box" id="uk-key-value" style="font-size:14px;">' + data.apiKey + '</div>' +
+          '<button class="secondary" style="width:100%;" onclick="copyUserApiKey()">Copy</button>';
+        document.getElementById('voucher-modal').classList.add('open');
+      }).catch(() => alert('Network error.'));
+  }
+  function copyUserApiKey() {
+    const text = document.getElementById('uk-key-value').textContent;
+    navigator.clipboard.writeText(text).then(() => alert('Copied.')).catch(() => {});
   }
 
   // ---- Settings ----
@@ -1309,10 +1327,11 @@
       .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
   }
 </script>  <!-- Voucher / transaction detail modal -->
+  <!-- Generic detail modal (voucher details, API keys, etc.) -->
   <div class="modal-overlay" id="voucher-modal" onclick="if(event.target===this)closeVoucherModal()">
     <div class="modal-box">
       <button class="modal-close-btn" onclick="closeVoucherModal()">&times;</button>
-      <h3>Voucher Details</h3>
+      <h3 id="voucher-modal-title">Details</h3>
       <div id="voucher-modal-body"></div>
     </div>
   </div>

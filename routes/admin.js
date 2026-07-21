@@ -391,6 +391,18 @@ router.post('/admin/users', auth, requireRole('admin'), async (req, res) => {
   }
 });
 
+router.get('/admin/users/:username/key', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const user = await AdminUser.findOne({ username: req.params.username }).select('username apiKey');
+    if (!user) return res.status(404).json({ message: 'Not found' });
+    logActivity(req.actor.username, 'users.view_key', { username: user.username });
+    res.json({ username: user.username, apiKey: user.apiKey });
+  } catch (err) {
+    console.error('GET /admin/users/:username/key failed:', err.message);
+    res.status(500).json({ message: 'Could not fetch key' });
+  }
+});
+
 router.post('/admin/users/:username/deactivate', auth, requireRole('admin'), async (req, res) => {
   try {
     if (req.params.username === req.actor.username) {

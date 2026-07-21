@@ -277,7 +277,74 @@ router.post('/orders/claim-next', async (req, res) => {
   }
 });
 
-// --- 7. Router polling script: report a hotspot user was created ---------
+// --- 6c. Router polling script: claim a WHOLE BATCH of pending orders at
+// once (up to 50), instead of one at a time. This is what makes fulfilling
+// a big batch of admin-generated vouchers fast: claim-next makes the router
+// do one claim + one dispatched-report round trip PER voucher; this makes
+// it one claim call for the whole batch, then one dispatched-batch call at
+// the end. Returns plain pipe-delimited lines (not JSON) since that's what
+// RouterOS scripting can parse without a JSON-array walker:
+//   reference|packageId|uptimeLimit
+//   reference|packageId|uptimeLimit
+router.post('/orders/claim-batch', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt((req.body && req.body.limit) || 50, 10) || 50, 50);
+    const pending = await Transaction.find({ status: 'success', dispatched: false })
+      .select('_id reference packageId')
+      .limit(limit);
+    if (!pending.length) return res.type('text/plain').send('');
+
+    const ids = pending.map(function (tx) { return tx._id; });
+    await Transaction.updateMany({ _id: { $in: ids } }, { $set: { dispatched: true, dispatchedAt: new Date() } });
+
+    const packageIds = [...new Set(pending.map(function (tx) { return tx.packageId; }))];
+    const products = await Product.find({ productId: { $in: packageIds } });
+    const productMap = {};
+    products.forEach(function (p) { productMap[p.productId] = p; });
+
+    const lines = pending.map(function (tx) {
+      const product = productMap[tx.packageId];
+      const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00';
+      // Product IDs/references shouldn't ever contain "|" - guard anyway so
+      // one bad record can't corrupt the delimited line for the router.
+      const safeRef = String(tx.reference).replace(/\|/g, '');
+      const safePkg = String(tx.packageId || '').replace(/\|/g, '');
+      return safeRef + '|' + safePkg + '|' + uptimeLimit;
+    });
+    res.type('text/plain').send(lines.join('\n'));
+  } catch (err) {
+    console.error('POST /orders/claim-batch failed:', err.message);
+    res.status(500).type('text/plain').send('');
+  }
+});
+
+// --- 7b. Router polling script: report a WHOLE BATCH of hotspot users
+// created, in one call, instead of one /dispatched call per voucher.
+router.post('/orders/dispatched-batch', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+    let updated = 0;
+    for (const item of items) {
+      if (!item || !item.reference) continue;
+      const tx = await Transaction.findOne({ reference: item.reference });
+      if (!tx) continue;
+      tx.dispatched = true;
+      tx.dispatchedAt = tx.dispatchedAt || new Date();
+      tx.synced = true;
+      tx.hotspotUsername = item.hotspotUsername;
+      tx.hotspotPassword = item.hotspotPassword;
+      await tx.save();
+      updated++;
+      notifyVoucherReady(tx).catch(function (err) { console.error('SMS notify failed:', err.message); });
+    }
+    res.json({ ok: true, updated });
+  } catch (err) {
+    console.error('POST /orders/dispatched-batch failed:', err.message);
+    res.status(500).json({ message: 'Could not save batch' });
+  }
+});
+
+
 router.post('/orders/:reference/dispatched', async (req, res) => {
   try {
     const { hotspotUsername, hotspotPassword } = req.body;

@@ -393,6 +393,9 @@ router.post('/admin/users', auth, requireRole('admin'), async (req, res) => {
 
 router.post('/admin/users/:username/deactivate', auth, requireRole('admin'), async (req, res) => {
   try {
+    if (req.params.username === req.actor.username) {
+      return res.status(400).json({ message: "You can't deactivate your own account." });
+    }
     const user = await AdminUser.findOneAndUpdate({ username: req.params.username }, { active: false }, { new: true });
     if (!user) return res.status(404).json({ message: 'Not found' });
     logActivity(req.actor.username, 'users.deactivate', { username: user.username });
@@ -400,6 +403,42 @@ router.post('/admin/users/:username/deactivate', auth, requireRole('admin'), asy
   } catch (err) {
     console.error('POST deactivate failed:', err.message);
     res.status(500).json({ message: 'Could not deactivate user' });
+  }
+});
+
+// "Extend" restores access for a deactivated account (the counterpart to
+// Deactivate above) - same account, same API key, just re-enabled.
+router.post('/admin/users/:username/extend', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const user = await AdminUser.findOneAndUpdate({ username: req.params.username }, { active: true }, { new: true });
+    if (!user) return res.status(404).json({ message: 'Not found' });
+    logActivity(req.actor.username, 'users.extend', { username: user.username });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST extend failed:', err.message);
+    res.status(500).json({ message: 'Could not extend user' });
+  }
+});
+
+router.delete('/admin/users/:username', auth, requireRole('admin'), async (req, res) => {
+  try {
+    if (req.params.username === req.actor.username) {
+      return res.status(400).json({ message: "You can't delete your own account." });
+    }
+    const target = await AdminUser.findOne({ username: req.params.username });
+    if (!target) return res.status(404).json({ message: 'Not found' });
+    if (target.role === 'admin') {
+      const otherActiveAdmins = await AdminUser.countDocuments({ role: 'admin', active: true, username: { $ne: target.username } });
+      if (otherActiveAdmins === 0) {
+        return res.status(400).json({ message: 'Cannot delete the last active admin account.' });
+      }
+    }
+    await AdminUser.deleteOne({ username: req.params.username });
+    logActivity(req.actor.username, 'users.delete', { username: req.params.username });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /admin/users failed:', err.message);
+    res.status(500).json({ message: 'Could not delete user' });
   }
 });
 

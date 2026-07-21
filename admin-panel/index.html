@@ -95,6 +95,17 @@
   .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; border-radius:50%; cursor:pointer; }
 
   .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open { display:flex; }
+  .modal-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; width:100%; max-width:380px; box-shadow:0 20px 50px rgba(0,0,0,0.35); max-height:85vh; overflow-y:auto; }
+  .modal-box h3 { margin:0 0 14px; }
+  .modal-close-btn { float:right; background:var(--border); color:var(--text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1; }
+  .detail-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .detail-row:last-child { border-bottom:none; }
+  .detail-row .k { color:var(--muted); }
+  .detail-row .v { text-align:right; word-break:break-all; font-weight:600; }
+  .voucher-code-box { font-family:monospace; font-size:20px; font-weight:700; text-align:center; background:var(--input); border:1px dashed var(--border); border-radius:10px; padding:14px; margin:14px 0; letter-spacing:1px; }
   .card h2 { font-size:15px; margin:0 0 14px; }
   label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
@@ -321,7 +332,8 @@
           </div>
           <div class="row">
             <div><label>Price (GHS)</label><input id="pd-price" type="number" step="0.01"></div>
-            <div><label>Duration (hours)</label><input id="pd-duration" type="number" step="0.1" placeholder="e.g. 6"></div>
+            <div><label>Duration</label><input id="pd-duration" type="number" step="0.1" placeholder="e.g. 6 or 7"></div>
+            <div><label>Duration Unit</label><select id="pd-duration-unit"><option value="hours">Hours</option><option value="days">Days</option></select></div>
             <div><label>Type</label><select id="pd-type"><option value="limited">Limited</option><option value="unlimited">Unlimited</option><option value="trial">Trial</option></select></div>
           </div>
           <div class="row">
@@ -741,21 +753,51 @@
   }
 
   // ---- Billing ----
+  let billingCache = [];
   function loadBilling() {
     const type = document.getElementById('bill-filter-type').value;
     const status = document.getElementById('bill-filter-status').value;
     const qs = new URLSearchParams(); if (type) qs.set('billingType', type); if (status) qs.set('status', status);
     fetch(API_BASE + '/api/admin/billing?' + qs.toString(), { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      billingCache = rows;
       document.getElementById('billing-body').innerHTML = rows.map(t => `
         <tr>
           <td>${t.reference}</td><td>${t.billingType}</td><td>${t.packageId || ''}</td><td>${t.phone || ''}</td>
           <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${t.canceled ? badge('failed') : badge(t.status)}</td>
           <td>
+            <button class="secondary" onclick="viewVoucherDetails('${t.reference}')">View</button>
             ${t.status !== 'success' && !t.canceled ? `<button class="secondary" onclick="markPaid('${t.reference}')">Mark Paid</button>` : ''}
             ${!t.canceled ? `<button class="danger" onclick="cancelBill('${t.reference}')">Cancel</button>` : ''}
           </td>
         </tr>`).join('');
     }).catch(() => {});
+  }
+  function viewVoucherDetails(reference) {
+    const t = billingCache.find(x => x.reference === reference);
+    if (!t) return;
+    let fulfillState = 'Not yet fulfilled';
+    if (t.synced) fulfillState = 'Created on router';
+    else if (t.dispatched) fulfillState = 'Handed to router - waiting for confirmation';
+    const rows = [
+      ['Package', t.packageId || '-'],
+      ['Type', t.billingType],
+      ['Status', t.canceled ? 'Canceled' : t.status],
+      ['Amount', 'GHS ' + ((t.amountKobo || 0) / 100).toFixed(2)],
+      ['Phone', t.phone || '-'],
+      ['Router account', fulfillState],
+      ['SMS sent', t.smsSent ? 'Yes' : 'No'],
+      ['Expired', t.expired ? 'Yes' : 'No'],
+      ['Created', new Date(t.createdAt).toLocaleString()],
+    ];
+    if (t.note) rows.push(['Note', t.note]);
+    if (t.createdBy) rows.push(['Created by', t.createdBy]);
+    document.getElementById('voucher-modal-body').innerHTML =
+      (t.hotspotUsername ? `<div class="voucher-code-box">${t.hotspotUsername}</div>` : '<p style="color:var(--muted);font-size:13px;">No voucher code assigned yet - the router hasn\u2019t created this account.</p>') +
+      rows.map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+    document.getElementById('voucher-modal').classList.add('open');
+  }
+  function closeVoucherModal() {
+    document.getElementById('voucher-modal').classList.remove('open');
   }
   function createManualBill() {
     const phone = document.getElementById('mb-phone').value.trim();
@@ -949,7 +991,12 @@
     fetch(API_BASE + '/api/admin/users', { headers: authHeaders() }).then(r => r.json()).then(rows => {
       document.getElementById('users-body').innerHTML = rows.map(u => `
         <tr><td>${u.username}</td><td>${u.role}</td><td>${u.active ? 'Yes' : 'No'}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td>
-        <td>${u.active ? `<button class="danger" onclick="deactivateUser('${u.username}')">Deactivate</button>` : ''}</td></tr>`).join('');
+        <td>
+          ${u.active
+            ? `<button class="danger" onclick="deactivateUser('${u.username}')">Deactivate</button>`
+            : `<button class="secondary" onclick="extendUser('${u.username}')">Extend</button>`}
+          <button class="danger" onclick="deleteUser('${u.username}')" style="margin-left:6px;">Delete</button>
+        </td></tr>`).join('');
     }).catch(() => {});
   }
   function createUser() {
@@ -970,7 +1017,18 @@
   }
   function deactivateUser(username) {
     if (!confirm('Deactivate ' + username + '?')) return;
-    fetch(API_BASE + '/api/admin/users/' + username + '/deactivate', { method: 'POST', headers: authHeaders() }).then(loadUsers);
+    fetch(API_BASE + '/api/admin/users/' + username + '/deactivate', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function extendUser(username) {
+    if (!confirm('Restore access for ' + username + '?')) return;
+    fetch(API_BASE + '/api/admin/users/' + username + '/extend', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function deleteUser(username) {
+    if (!confirm('Permanently delete ' + username + '? This cannot be undone - their API key stops working immediately.')) return;
+    fetch(API_BASE + '/api/admin/users/' + username, { method: 'DELETE', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
   }
 
   // ---- Settings ----
@@ -1007,6 +1065,13 @@
     }
   });
 
+  function formatDuration(ms) {
+    if (!ms) return '-';
+    const hours = ms / (60 * 60 * 1000);
+    if (hours >= 24 && hours % 24 === 0) return (hours / 24) + 'd';
+    if (hours >= 24) return (hours / 24).toFixed(1) + 'd';
+    return (hours % 1 === 0 ? hours : hours.toFixed(1)) + 'h';
+  }
   function loadProducts() {
     return fetch(API_BASE + '/api/admin/products', { headers: authHeaders() }).then(r => r.json()).then(products => {
       productsCache = products;
@@ -1015,7 +1080,7 @@
           ${p.imageBase64 ? `<img src="${p.imageBase64}">` : ''}
           <div class="p-name">${p.name}</div>
           <div class="p-price">GHS ${p.price.toFixed(2)}</div>
-          <div class="p-meta">${p.productId} &middot; ${p.type}${p.active ? '' : ' &middot; INACTIVE'}</div>
+          <div class="p-meta">${p.productId} &middot; ${p.type} &middot; ${formatDuration(p.durationMs)}${p.active ? '' : ' &middot; INACTIVE'}</div>
           <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
         </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
       populateVoucherPackageDropdown(products);
@@ -1035,7 +1100,8 @@
     const productId = document.getElementById('pd-productid').value.trim();
     const name = document.getElementById('pd-name').value.trim();
     const price = parseFloat(document.getElementById('pd-price').value) || 0;
-    const hours = parseFloat(document.getElementById('pd-duration').value);
+    const durationValue = parseFloat(document.getElementById('pd-duration').value);
+    const durationUnit = document.getElementById('pd-duration-unit').value; // 'hours' | 'days'
     const type = document.getElementById('pd-type').value;
     const dataAmount = document.getElementById('pd-data').value.trim();
     const speed = document.getElementById('pd-speed').value.trim();
@@ -1046,12 +1112,15 @@
     const imageBase64 = imgPreview.style.display !== 'none' ? imgPreview.src : undefined;
     const statusEl = document.getElementById('pd-status');
 
-    if (!productId || !name || !hours) { statusEl.className = 'status error'; statusEl.textContent = 'Product ID, name, and duration are required.'; return; }
+    if (!productId || !name || !durationValue) { statusEl.className = 'status error'; statusEl.textContent = 'Product ID, name, and duration are required.'; return; }
+
+    const hoursPerUnit = durationUnit === 'days' ? 24 : 1;
+    const durationMs = durationValue * hoursPerUnit * 60 * 60 * 1000;
 
     statusEl.className = 'status'; statusEl.textContent = 'Creating\u2026';
     fetch(API_BASE + '/api/admin/products', {
       method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ productId, name, price, durationMs: hours * 60 * 60 * 1000, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
+      body: JSON.stringify({ productId, name, price, durationMs, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
     }).then(r => r.json()).then(data => {
       if (data.product) {
         statusEl.className = 'status ok'; statusEl.textContent = data.message;
@@ -1239,6 +1308,13 @@
     }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
       .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
   }
-</script>
+</script>  <!-- Voucher / transaction detail modal -->
+  <div class="modal-overlay" id="voucher-modal" onclick="if(event.target===this)closeVoucherModal()">
+    <div class="modal-box">
+      <button class="modal-close-btn" onclick="closeVoucherModal()">&times;</button>
+      <h3>Voucher Details</h3>
+      <div id="voucher-modal-body"></div>
+    </div>
+  </div>
 </body>
 </html>

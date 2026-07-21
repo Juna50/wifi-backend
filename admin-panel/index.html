@@ -75,6 +75,7 @@
     .login-card-body { padding:24px 18px; }
   }
   input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
+  input:disabled { opacity:.6; cursor:not-allowed; }
   select { color-scheme: dark; }
   [data-theme="light"] select { color-scheme: light; }
   select option { background:var(--input); color:var(--text); }
@@ -90,7 +91,7 @@
   #shell { display:none; }
   .layout { display:flex; min-height:100vh; }
   .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; transition:width .2s ease; position:relative; }
-  .rail-toggle { display:none; position:absolute; top:14px; right:-13px; width:26px; height:26px; border-radius:50%; background:var(--blue); border:2px solid var(--sidebar); color:#fff; cursor:pointer; align-items:center; justify-content:center; z-index:5; }
+  .rail-toggle { display:none; position:absolute; top:64px; right:-13px; width:26px; height:26px; border-radius:50%; background:var(--blue); border:2px solid var(--sidebar); color:#fff; cursor:pointer; align-items:center; justify-content:center; z-index:5; }
   body.sidebar-expand-lg .rail-toggle { display:flex; }
   body.sidebar-expand-lg.sidebar-collapsed .sidebar { width:60px; }
   body.sidebar-expand-lg.sidebar-collapsed .sidebar .brand span,
@@ -193,7 +194,7 @@
     <div class="sidebar" id="sidebar">
       <div class="brand"><img src="assets/logo.png" alt="NETGHWiFi"><span>NETGHWiFi</span></div>
       <button class="rail-toggle" onclick="toggleRail()" title="Collapse sidebar">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg>
       </button>
       <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="label">Dashboard</span></button>
       <button class="nav-item" data-tab="billing" onclick="showTab('billing')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg><span class="label">Billing</span></button>
@@ -333,7 +334,7 @@
       <!-- PRODUCTS -->
       <div class="tab-panel" id="tab-products">
         <div class="card">
-          <h2>Add Product</h2>
+          <h2 id="pd-form-title">Add Product</h2>
           <p style="color:var(--muted);font-size:13px;">
             <strong>productId</strong> must exactly match (or become) a router hotspot user profile name.
             Creating a product auto-queues a Terminal command to create that profile - confirm it ran in
@@ -361,7 +362,8 @@
           <label>Image (optional, under ~500KB)</label>
           <input type="file" id="pd-image" accept="image/*">
           <img id="pd-image-preview" style="display:none;max-width:120px;border-radius:8px;margin-bottom:12px;">
-          <button onclick="createProduct()">Add Product</button>
+          <button onclick="createProduct()" id="pd-submit-btn">Add Product</button>
+          <button class="secondary" onclick="cancelEditProduct()" id="pd-cancel-btn" style="display:none;margin-left:8px;">Cancel Edit</button>
           <div id="pd-status" class="status"></div>
         </div>
 
@@ -1065,6 +1067,7 @@
   // ---- Settings ----
   // ---- Products ----
   let productsCache = [];
+  let editingProductId = null;
   document.addEventListener('DOMContentLoaded', function () {
     const imgInput = document.getElementById('pd-image');
     if (imgInput) {
@@ -1115,6 +1118,7 @@
           <div class="p-price">GHS ${p.price.toFixed(2)}</div>
           <div class="p-meta">${p.productId} &middot; ${p.type} &middot; ${formatDuration(p.durationMs)}${p.active ? '' : ' &middot; INACTIVE'}</div>
           <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
+          <button class="secondary" style="width:100%;margin-top:6px;" onclick="editProduct('${p._id}')">Edit</button>
           <button class="danger" style="width:100%;margin-top:6px;" onclick="deleteProduct('${p._id}','${(p.name||'').replace(/'/g,"\\'")}')">Delete</button>
         </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
       populateVoucherPackageDropdown(products);
@@ -1151,6 +1155,25 @@
     const msPerUnit = durationUnit === 'days' ? 24 * 60 * 60 * 1000 : durationUnit === 'minutes' ? 60 * 1000 : 60 * 60 * 1000;
     const durationMs = durationValue * msPerUnit;
 
+    if (editingProductId) {
+      // Editing: PATCH the existing product. productId (the router profile
+      // name) is intentionally left out of the payload - it's locked while
+      // editing so it can't drift out of sync with the actual router
+      // profile name behind an existing, possibly-already-sold, product.
+      statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+      fetch(API_BASE + '/api/admin/products/' + editingProductId, {
+        method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name, price, durationMs, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
+      }).then(r => r.json()).then(data => {
+        if (data._id) {
+          statusEl.className = 'status ok'; statusEl.textContent = 'Product updated.';
+          cancelEditProduct();
+          loadProducts();
+        } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+      }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+      return;
+    }
+
     statusEl.className = 'status'; statusEl.textContent = 'Creating\u2026';
     fetch(API_BASE + '/api/admin/products', {
       method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -1163,6 +1186,55 @@
         loadProducts();
       } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
     }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function editProduct(id) {
+    const p = productsCache.find(x => x._id === id);
+    if (!p) return;
+    editingProductId = id;
+    document.getElementById('pd-form-title').textContent = 'Edit Product \u2014 ' + p.name;
+    document.getElementById('pd-productid').value = p.productId;
+    document.getElementById('pd-productid').disabled = true;
+    document.getElementById('pd-name').value = p.name || '';
+    document.getElementById('pd-price').value = p.price || 0;
+    document.getElementById('pd-type').value = p.type || 'limited';
+    document.getElementById('pd-data').value = p.dataAmount || '';
+    document.getElementById('pd-speed').value = p.speed || '';
+    document.getElementById('pd-ratelimit').value = p.rateLimit || '';
+    document.getElementById('pd-badge').value = p.badge || '';
+    document.getElementById('pd-features').value = (p.features || []).join(', ');
+
+    // Pick whichever unit shows the cleanest whole number for the existing
+    // duration, so editing doesn't show something like "0.0035" days.
+    const ms = p.durationMs || 0;
+    const minutes = ms / (60 * 1000), hours = ms / (60 * 60 * 1000), days = hours / 24;
+    if (hours < 1) { document.getElementById('pd-duration-unit').value = 'minutes'; document.getElementById('pd-duration').value = minutes; }
+    else if (days >= 1 && days % 1 === 0) { document.getElementById('pd-duration-unit').value = 'days'; document.getElementById('pd-duration').value = days; }
+    else { document.getElementById('pd-duration-unit').value = 'hours'; document.getElementById('pd-duration').value = hours; }
+
+    document.getElementById('pd-image-preview').src = p.imageBase64 || '';
+    document.getElementById('pd-image-preview').style.display = p.imageBase64 ? 'block' : 'none';
+    document.getElementById('pd-submit-btn').textContent = 'Save Changes';
+    document.getElementById('pd-cancel-btn').style.display = 'inline-block';
+    document.getElementById('pd-status').className = 'status'; document.getElementById('pd-status').textContent = '';
+    document.getElementById('tab-products').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function cancelEditProduct() {
+    editingProductId = null;
+    document.getElementById('pd-form-title').textContent = 'Add Product';
+    document.getElementById('pd-productid').disabled = false;
+    ['pd-productid','pd-name','pd-price','pd-duration','pd-badge','pd-features'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pd-data').value = 'Time-based';
+    document.getElementById('pd-speed').value = '15 Mbps';
+    document.getElementById('pd-ratelimit').value = '5M/5M';
+    document.getElementById('pd-type').value = 'limited';
+    document.getElementById('pd-duration-unit').value = 'hours';
+    document.getElementById('pd-image').value = '';
+    document.getElementById('pd-image-preview').style.display = 'none';
+    document.getElementById('pd-submit-btn').textContent = 'Add Product';
+    document.getElementById('pd-cancel-btn').style.display = 'none';
+    document.getElementById('pd-status').className = 'status'; document.getElementById('pd-status').textContent = '';
   }
 
   function toggleProductActive(id, makeActive) {

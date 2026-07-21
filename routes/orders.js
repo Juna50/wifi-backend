@@ -216,8 +216,19 @@ router.post('/orders/trial', async (req, res) => {
     const { phone, mac } = req.body;
     if (!phone) return res.status(400).json({ message: 'Phone number required' });
 
+    // Look up whichever product is actually marked as the trial package,
+    // rather than assuming its productId is literally "test" - that was
+    // the bug behind trials silently running the 5-hour fallback duration:
+    // if no product exists with that exact id (e.g. it was renamed or
+    // recreated from the admin panel), the duration lookup below would
+    // find nothing and fall back to a default meant for emergencies only.
+    const trialProduct = await Product.findOne({ isTrial: true, active: true }).sort({ sortOrder: 1 });
+    if (!trialProduct) {
+      return res.status(400).json({ message: 'No trial package is currently available.' });
+    }
+
     const existing = await Transaction.findOne({
-      packageId: 'test',
+      packageId: trialProduct.productId,
       $or: [{ phone }, { hotspotUsername: mac }]
     });
     if (existing) {
@@ -227,7 +238,7 @@ router.post('/orders/trial', async (req, res) => {
     const reference = genRef();
     const tx = await Transaction.create({
       reference,
-      packageId: 'test',
+      packageId: trialProduct.productId,
       phone,
       amountKobo: 0,
       status: 'success' // trials skip payment entirely
@@ -268,9 +279,19 @@ router.post('/orders/claim-next', async (req, res) => {
     if (!tx) return res.json({ found: false });
 
     const product = await Product.findOne({ productId: tx.packageId });
+    if (!product) {
+      console.warn(`claim-next: no Product found for packageId "${tx.packageId}" (reference ${tx.reference}) - falling back to 5h default. Check the product wasn't renamed/deleted.`);
+    }
     const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00'; // safe fallback if a product was deleted after being sold
 
-    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone, uptimeLimit });
+    // The hotspot username shown back to the customer on the router's status
+    // page - computed here (not left to the router to derive from the raw
+    // reference) so trial sessions can get a recognizable "trial-xxxx" name
+    // instead of an opaque hex code that looks identical to a paid voucher.
+    const codeBase = tx.reference.slice(4, 12);
+    const hotspotUsername = (product && product.isTrial) ? ('trial-' + codeBase) : codeBase;
+
+    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone, uptimeLimit, hotspotUsername });
   } catch (err) {
     console.error('POST /orders/claim-next failed:', err.message);
     res.status(500).json({ found: false });
@@ -304,12 +325,19 @@ router.post('/orders/claim-batch', async (req, res) => {
 
     const lines = pending.map(function (tx) {
       const product = productMap[tx.packageId];
+      if (!product) {
+        console.warn(`claim-batch: no Product found for packageId "${tx.packageId}" (reference ${tx.reference}) - falling back to 5h default. Check the product wasn't renamed/deleted.`);
+      }
       const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00';
+      // Same recognizable "trial-xxxx" naming as claim-next, computed here
+      // rather than left to the router to derive from the raw reference.
+      const codeBase = String(tx.reference).slice(4, 12);
+      const hotspotUsername = (product && product.isTrial) ? ('trial-' + codeBase) : codeBase;
       // Product IDs/references shouldn't ever contain "|" - guard anyway so
       // one bad record can't corrupt the delimited line for the router.
       const safeRef = String(tx.reference).replace(/\|/g, '');
       const safePkg = String(tx.packageId || '').replace(/\|/g, '');
-      return safeRef + '|' + safePkg + '|' + uptimeLimit;
+      return safeRef + '|' + safePkg + '|' + uptimeLimit + '|' + hotspotUsername;
     });
     res.type('text/plain').send(lines.join('\n'));
   } catch (err) {

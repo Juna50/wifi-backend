@@ -755,6 +755,24 @@ router.post('/admin/products/:id/deactivate', auth, requireRole('admin'), async 
   }
 });
 
+// Hard delete - permanently removes the catalog entry. Existing vouchers/
+// transactions store packageId as a plain string, not a reference to this
+// document, so deleting a product never breaks past sales history - it just
+// stops it from being sold again. It does NOT remove the matching hotspot
+// profile on the router - that's left alone deliberately since something
+// might still rely on it.
+router.delete('/admin/products/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Not found' });
+    logActivity(req.actor.username, 'products.delete', { productId: product.productId });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /admin/products failed:', err.message);
+    res.status(500).json({ message: 'Could not delete product' });
+  }
+});
+
 router.post('/admin/products/seed-defaults', auth, requireRole('admin'), async (req, res) => {
   try {
     const existingCount = await Product.countDocuments({});

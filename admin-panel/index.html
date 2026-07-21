@@ -61,6 +61,19 @@
     .main { padding:16px; width:100%; }
     .sidebar-overlay.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:55; }
   }
+  @media (max-width:480px) {
+    .main { padding:12px 12px 60px; }
+    .card { padding:14px; border-radius:12px; }
+    .topbar h1 { font-size:16px; }
+    .row { gap:0; }
+    .row > * { min-width:100%; }
+    .stat-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
+    .voucher-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+    table { font-size:12px; }
+    button { padding:9px 12px; font-size:12.5px; }
+    .modal-box { padding:16px; }
+    .login-card-body { padding:24px 18px; }
+  }
   input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
   select { color-scheme: dark; }
   [data-theme="light"] select { color-scheme: light; }
@@ -89,10 +102,10 @@
   .nav-item { display:block; width:100%; text-align:left; background:none; border:none; color:rgba(255,255,255,0.75); padding:11px 18px; font-size:13px; font-weight:600; cursor:pointer; border-radius:0; }
   .nav-item:hover { background:rgba(255,255,255,0.06); }
   .nav-item.active { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; box-shadow:0 4px 14px rgba(59,173,240,0.35); }
-  .main { flex:1; padding:22px 24px 60px; max-width:1100px; }
-  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
-  .topbar h1 { font-size:18px; margin:0; }
-  .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; border-radius:50%; cursor:pointer; }
+  .main { flex:1; min-width:0; padding:22px 24px 60px; max-width:1100px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; position:sticky; top:0; z-index:30; background:var(--bg); padding:6px 0; }
+  .topbar h1 { font-size:18px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; min-width:34px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
   .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
 
@@ -333,7 +346,7 @@
           <div class="row">
             <div><label>Price (GHS)</label><input id="pd-price" type="number" step="0.01"></div>
             <div><label>Duration</label><input id="pd-duration" type="number" step="0.1" placeholder="e.g. 6 or 7"></div>
-            <div><label>Duration Unit</label><select id="pd-duration-unit"><option value="hours">Hours</option><option value="days">Days</option></select></div>
+            <div><label>Duration Unit</label><select id="pd-duration-unit"><option value="minutes">Minutes</option><option value="hours" selected>Hours</option><option value="days">Days</option></select></div>
             <div><label>Type</label><select id="pd-type"><option value="limited">Limited</option><option value="unlimited">Unlimited</option><option value="trial">Trial</option></select></div>
           </div>
           <div class="row">
@@ -1084,7 +1097,9 @@
   });
 
   function formatDuration(ms) {
-    if (!ms) return '-';
+    if (!ms || ms <= 0) return ms < 0 ? 'invalid (negative)' : '-';
+    const minutes = ms / (60 * 1000);
+    if (minutes < 60) return (minutes % 1 === 0 ? minutes : minutes.toFixed(0)) + 'm';
     const hours = ms / (60 * 60 * 1000);
     if (hours >= 24 && hours % 24 === 0) return (hours / 24) + 'd';
     if (hours >= 24) return (hours / 24).toFixed(1) + 'd';
@@ -1100,6 +1115,7 @@
           <div class="p-price">GHS ${p.price.toFixed(2)}</div>
           <div class="p-meta">${p.productId} &middot; ${p.type} &middot; ${formatDuration(p.durationMs)}${p.active ? '' : ' &middot; INACTIVE'}</div>
           <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
+          <button class="danger" style="width:100%;margin-top:6px;" onclick="deleteProduct('${p._id}','${(p.name||'').replace(/'/g,"\\'")}')">Delete</button>
         </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
       populateVoucherPackageDropdown(products);
       return products;
@@ -1119,7 +1135,7 @@
     const name = document.getElementById('pd-name').value.trim();
     const price = parseFloat(document.getElementById('pd-price').value) || 0;
     const durationValue = parseFloat(document.getElementById('pd-duration').value);
-    const durationUnit = document.getElementById('pd-duration-unit').value; // 'hours' | 'days'
+    const durationUnit = document.getElementById('pd-duration-unit').value; // 'minutes' | 'hours' | 'days'
     const type = document.getElementById('pd-type').value;
     const dataAmount = document.getElementById('pd-data').value.trim();
     const speed = document.getElementById('pd-speed').value.trim();
@@ -1132,8 +1148,8 @@
 
     if (!productId || !name || !durationValue) { statusEl.className = 'status error'; statusEl.textContent = 'Product ID, name, and duration are required.'; return; }
 
-    const hoursPerUnit = durationUnit === 'days' ? 24 : 1;
-    const durationMs = durationValue * hoursPerUnit * 60 * 60 * 1000;
+    const msPerUnit = durationUnit === 'days' ? 24 * 60 * 60 * 1000 : durationUnit === 'minutes' ? 60 * 1000 : 60 * 60 * 1000;
+    const durationMs = durationValue * msPerUnit;
 
     statusEl.className = 'status'; statusEl.textContent = 'Creating\u2026';
     fetch(API_BASE + '/api/admin/products', {
@@ -1158,6 +1174,11 @@
       if (!confirm('Deactivate this product? It will disappear from the customer portal immediately.')) return;
       fetch(API_BASE + '/api/admin/products/' + id + '/deactivate', { method: 'POST', headers: authHeaders() }).then(loadProducts);
     }
+  }
+  function deleteProduct(id, name) {
+    if (!confirm('Permanently delete "' + name + '"? This cannot be undone. Past vouchers/transactions for it are unaffected - this only removes it from the catalog so it can\'t be sold again.')) return;
+    fetch(API_BASE + '/api/admin/products/' + id, { method: 'DELETE', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadProducts(); });
   }
 
   function seedDefaultProducts() {

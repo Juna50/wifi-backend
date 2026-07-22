@@ -8,7 +8,7 @@ function msToRouterOSDuration(ms) {
   const seconds = totalSeconds % 60;
   const pad = n => String(n).padStart(2, '0');
   return days > 0
-    ? `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    ? `${days}d${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
     : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 

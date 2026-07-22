@@ -251,9 +251,23 @@ router.post('/orders/trial', async (req, res) => {
 });
 
 // --- 6. Router polling script: fetch work queue --------------------------
+// STALE_CLAIM_MS: if an order was claimed (dispatched=true) but never
+// actually confirmed fulfilled (synced=true) within this window, treat it
+// as abandoned and make it claimable again. Without this, any hiccup on the
+// router's side while creating the hotspot user (most commonly: the
+// matching hotspot profile doesn't exist yet) permanently strands the
+// order - it was already marked "claimed" before the router attempted the
+// actual creation, so a one-off failure there had no way to ever retry.
+const STALE_CLAIM_MS = 90 * 1000;
+
 router.get('/pending', async (req, res) => {
   try {
-    const pending = await Transaction.find({ status: 'success', dispatched: false })
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const pending = await Transaction.find({
+      status: 'success',
+      synced: { $ne: true },
+      $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }]
+    })
       .select('reference packageId phone')
       .limit(50);
     res.json(pending);
@@ -271,8 +285,9 @@ router.get('/pending', async (req, res) => {
 // the router just calls this again right after.
 router.post('/orders/claim-next', async (req, res) => {
   try {
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
     const tx = await Transaction.findOneAndUpdate(
-      { status: 'success', dispatched: false },
+      { status: 'success', synced: { $ne: true }, $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }] },
       { $set: { dispatched: true, dispatchedAt: new Date() } },
       { new: true }
     );
@@ -310,7 +325,12 @@ router.post('/orders/claim-next', async (req, res) => {
 router.post('/orders/claim-batch', async (req, res) => {
   try {
     const limit = Math.min(parseInt((req.body && req.body.limit) || 50, 10) || 50, 50);
-    const pending = await Transaction.find({ status: 'success', dispatched: false })
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const pending = await Transaction.find({
+      status: 'success',
+      synced: { $ne: true },
+      $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }]
+    })
       .select('_id reference packageId')
       .limit(limit);
     if (!pending.length) return res.type('text/plain').send('');

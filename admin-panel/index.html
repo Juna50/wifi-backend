@@ -809,8 +809,14 @@
     document.getElementById('voucher-modal-title').textContent = 'Voucher Details';
     document.getElementById('voucher-modal-body').innerHTML =
       (t.hotspotUsername ? `<div class="voucher-code-box">${t.hotspotUsername}</div>` : '<p style="color:var(--muted);font-size:13px;">No voucher code assigned yet - the router hasn\u2019t created this account.</p>') +
-      rows.map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+      rows.map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('') +
+      (!t.synced && !t.canceled ? `<button class="secondary" style="width:100%;margin-top:12px;" onclick="retryFulfillment('${t.reference}')">Retry Fulfillment Now</button>` : '');
     document.getElementById('voucher-modal').classList.add('open');
+  }
+  function retryFulfillment(reference) {
+    if (!confirm('Mark this order for retry? The router will pick it up on its next poll.')) return;
+    fetch(API_BASE + '/api/admin/billing/' + reference + '/retry-fulfillment', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { alert(data.message || 'Done.'); closeVoucherModal(); loadBilling(); });
   }
   function closeVoucherModal() {
     document.getElementById('voucher-modal').classList.remove('open');
@@ -1119,6 +1125,7 @@
           <div class="p-meta">${p.productId} &middot; ${p.type} &middot; ${formatDuration(p.durationMs)}${p.active ? '' : ' &middot; INACTIVE'}</div>
           <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
           <button class="secondary" style="width:100%;margin-top:6px;" onclick="editProduct('${p._id}')">Edit</button>
+          <button class="secondary" style="width:100%;margin-top:6px;" onclick="recreateProfile('${p._id}')">Recreate Router Profile</button>
           <button class="danger" style="width:100%;margin-top:6px;" onclick="deleteProduct('${p._id}','${(p.name||'').replace(/'/g,"\\'")}')">Delete</button>
         </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
       populateVoucherPackageDropdown(products);
@@ -1251,6 +1258,11 @@
     if (!confirm('Permanently delete "' + name + '"? This cannot be undone. Past vouchers/transactions for it are unaffected - this only removes it from the catalog so it can\'t be sold again.')) return;
     fetch(API_BASE + '/api/admin/products/' + id, { method: 'DELETE', headers: authHeaders() })
       .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadProducts(); });
+  }
+  function recreateProfile(id) {
+    if (!confirm('Re-queue the router profile creation command for this product?\n\nUse this if vouchers for it are stuck "waiting" forever - that usually means the profile was never actually created on the router.')) return;
+    fetch(API_BASE + '/api/admin/products/' + id + '/recreate-profile', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => alert(data.message || 'Done.'));
   }
 
   function seedDefaultProducts() {

@@ -175,6 +175,28 @@ router.post('/admin/billing/:reference/cancel', auth, requireRole('admin', 'cash
   }
 });
 
+// Manually makes an order claimable again immediately, instead of waiting
+// out the automatic 90s staleness window in claim-next/claim-batch. For
+// when a paid/trial order is stuck "claimed but never fulfilled" - usually
+// because the router tried and failed to create the hotspot account (most
+// often: the matching profile doesn't exist - see products/:id/recreate-profile)
+// and support wants it retried right now rather than on the router's own timer.
+router.post('/admin/billing/:reference/retry-fulfillment', auth, requireRole('admin', 'cashier'), async (req, res) => {
+  try {
+    const tx = await Transaction.findOne({ reference: req.params.reference });
+    if (!tx) return res.status(404).json({ message: 'Not found' });
+    if (tx.synced) return res.status(400).json({ message: 'This voucher already finished fulfilling - nothing to retry.' });
+    tx.dispatched = false;
+    tx.dispatchedAt = undefined;
+    await tx.save();
+    logActivity(req.actor.username, 'billing.retry_fulfillment', { reference: tx.reference });
+    res.json({ ok: true, message: 'Marked for retry - the router will pick it up on its next poll.' });
+  } catch (err) {
+    console.error('POST retry-fulfillment failed:', err.message);
+    res.status(500).json({ message: 'Could not retry' });
+  }
+});
+
 // ===========================================================================
 // PAYMENTS - online (Paystack) vs voucher/cash, split view
 // ===========================================================================
@@ -708,6 +730,31 @@ router.post('/admin/products', auth, requireRole('admin'), async (req, res) => {
     if (err.code === 11000) return res.status(400).json({ message: 'A product with that productId already exists' });
     console.error('POST /admin/products failed:', err.message);
     res.status(500).json({ message: 'Could not create product' });
+  }
+});
+
+// Re-queues the hotspot profile creation command for an EXISTING product.
+// Exists because that command only ever ran once, automatically, at
+// product-creation time - if it failed, was never confirmed in Terminal
+// history, or the router didn't have connectivity that moment, there was
+// previously no way to try it again short of deleting and recreating the
+// whole product. This is what a stuck "waiting forever" voucher for an
+// otherwise-valid product usually means: the profile never actually got
+// created on the router.
+router.post('/admin/products/:id/recreate-profile', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Not found' });
+    const safeId = sanitizeForRouterOS(product.productId);
+    const safeRate = sanitizeForRouterOS(product.rateLimit || '5M/5M');
+    const uptimeStr = msToRouterOSDuration(product.durationMs);
+    const command = `/ip hotspot user profile add name="${safeId}" address-pool="NETGHWiFi Hotspot Pool" session-timeout=${uptimeStr} rate-limit="${safeRate}"`;
+    await RouterCommand.create({ command, requestedBy: req.actor.username });
+    logActivity(req.actor.username, 'products.recreate_profile', { productId: product.productId });
+    res.json({ ok: true, message: 'Command queued - check Terminal history in ~10s to confirm it ran.' });
+  } catch (err) {
+    console.error('POST recreate-profile failed:', err.message);
+    res.status(500).json({ message: 'Could not queue command' });
   }
 });
 

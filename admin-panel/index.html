@@ -6,6 +6,7 @@
 <title>NETGHWiFi Admin</title>
 <link rel="icon" href="assets/favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
   @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
   @keyframes popIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
@@ -32,6 +33,7 @@
   }
   * { box-sizing:border-box; }
   body { margin:0; font-family:'Segoe UI',Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  html, body { overflow-x:hidden; max-width:100vw; }
   #login-gate { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; background:radial-gradient(circle at top, var(--card) 0%, var(--bg) 70%); }
   .login-card { width:100%; max-width:360px; background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.25); animation: popIn 0.35s ease; }
   .login-card-top { height:5px; background:linear-gradient(90deg,var(--blue),var(--blue-dark)); }
@@ -92,7 +94,7 @@
   .layout { display:flex; min-height:100vh; }
   .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; transition:width .2s ease; position:relative; }
   .rail-toggle { display:none; position:absolute; top:64px; right:-13px; width:26px; height:26px; border-radius:50%; background:var(--blue); border:2px solid var(--sidebar); color:#fff; cursor:pointer; align-items:center; justify-content:center; z-index:5; }
-  body.sidebar-expand-lg .rail-toggle { display:flex; }
+  @media (min-width:821px) { body.sidebar-expand-lg .rail-toggle { display:flex; } }
   body.sidebar-expand-lg.sidebar-collapsed .sidebar { width:60px; }
   body.sidebar-expand-lg.sidebar-collapsed .sidebar .brand span,
   body.sidebar-expand-lg.sidebar-collapsed .nav-item .label { display:none; }
@@ -134,14 +136,17 @@
   .badge.failed { background:rgba(224,80,59,.15); color:var(--red); }
 
   .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
-  .stat-box { background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .stat-box { background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:left; position:relative; overflow:hidden; }
+  .stat-box .icon { width:30px; height:30px; border-radius:8px; background:rgba(41,168,224,0.15); color:var(--blue); display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
   .stat-box .num { font-size:22px; font-weight:800; color:var(--blue); }
   .stat-box .lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+  .stat-box .spark { position:absolute; right:0; bottom:0; width:70px; height:32px; opacity:0.55; }
 
   .voucher-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-top:16px; }
   .voucher-card { border:1.5px dashed var(--blue); border-radius:10px; padding:12px; text-align:center; background:var(--input); }
   .voucher-card .code { font-size:18px; font-weight:800; letter-spacing:1px; color:var(--blue); margin:4px 0; }
   .voucher-card .pkg, .voucher-card .brand { font-size:11px; color:var(--muted); }
+  .voucher-barcode { display:block; width:100%; max-width:180px; height:36px; margin:4px auto; }
 
   .product-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--input); text-align:center; }
   .product-card img { width:100%; height:90px; object-fit:cover; border-radius:8px; margin-bottom:8px; background:var(--card); }
@@ -225,15 +230,42 @@
 
       <!-- DASHBOARD -->
       <div class="tab-panel active" id="tab-dashboard">
+        <div class="card" id="welcome-banner" style="background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;border:none;">
+          <h2 style="margin:0 0 4px;color:#fff;" id="welcome-heading">Welcome back</h2>
+          <p style="margin:0;color:rgba(255,255,255,0.85);font-size:13.5px;">Here's what's happening with your Hotspot business today.</p>
+        </div>
         <div class="card">
           <div class="stat-grid">
-            <div class="stat-box"><div class="num" id="d-today-rev">-</div><div class="lbl">Today Revenue (GHS)</div></div>
-            <div class="stat-box"><div class="num" id="d-today-orders">-</div><div class="lbl">Today Orders</div></div>
-            <div class="stat-box"><div class="num" id="d-week-rev">-</div><div class="lbl">7-Day Revenue (GHS)</div></div>
-            <div class="stat-box"><div class="num" id="d-week-orders">-</div><div class="lbl">7-Day Orders</div></div>
-            <div class="stat-box"><div class="num" id="d-pending">-</div><div class="lbl">Pending Bills</div></div>
-            <div class="stat-box"><div class="num" id="d-customers">-</div><div class="lbl">Total Customers</div></div>
-            <div class="stat-box"><div class="num"><span class="live-dot" id="d-active-dot" style="display:none;"></span><span id="d-active">-</span></div><div class="lbl">Active Now</div></div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+              <div class="num" id="d-today-rev">-</div><div class="lbl">Today Revenue (GHS)</div>
+              <div class="spark" id="spark-today-rev"></div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 2-1.58l1.65-7.42H5.12"></path></svg></div>
+              <div class="num" id="d-today-orders">-</div><div class="lbl">Today Orders</div>
+              <div class="spark" id="spark-today-orders"></div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+              <div class="num" id="d-week-rev">-</div><div class="lbl">7-Day Revenue (GHS)</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg></div>
+              <div class="num" id="d-week-orders">-</div><div class="lbl">7-Day Orders</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+              <div class="num" id="d-pending">-</div><div class="lbl">Pending Bills</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+              <div class="num" id="d-customers">-</div><div class="lbl">Total Customers</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg></div>
+              <div class="num"><span class="live-dot" id="d-active-dot" style="display:none;"></span><span id="d-active">-</span></div><div class="lbl">Active Now</div>
+            </div>
           </div>
         </div>
 
@@ -449,8 +481,17 @@
           <div id="stats-updated" class="status"></div>
           <div id="chart-live-trend" style="margin:10px 0 16px;"></div>
           <div style="overflow-x:auto;">
-            <table><thead><tr><th>User</th><th>IP</th><th>Session Uptime</th></tr></thead><tbody id="active-body"></tbody></table>
+            <table><thead><tr><th>Device</th><th>User</th><th>IP</th><th>Session Uptime</th></tr></thead><tbody id="active-body"></tbody></table>
           </div>
+        </div>
+
+        <div class="card">
+          <h2>Data Usage Analytics</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Combined upload + download across all active sessions at each check-in - a trend of overall network
+            load, not a per-customer breakdown. Needs the updated report-stats router script to populate.
+          </p>
+          <div id="chart-data-usage"></div>
         </div>
       </div>
 
@@ -651,6 +692,9 @@
         document.getElementById('shell').style.display = 'block';
         detectRole();
         showTab('dashboard');
+        fetch(API_BASE + '/api/admin/whoami', { headers: authHeaders() }).then(r => r.json()).then(w => {
+          if (w.username) document.getElementById('welcome-heading').textContent = 'Welcome back, ' + w.username;
+        }).catch(() => {});
       })
       .catch(err => { document.getElementById('login-status').textContent = err.message; });
   }
@@ -702,7 +746,20 @@
   function badge(s) { return '<span class="badge ' + s + '">' + s + '</span>'; }
 
   // ---- Dashboard ----
-  let revenueChart = null, typesChart = null;
+  let revenueChart = null, typesChart = null, sparkRevChart = null, sparkOrdChart = null;
+  function renderSparkline(elId, data, color, existing) {
+    const opts = {
+      chart: { type: 'line', height: 32, width: 70, sparkline: { enabled: true } },
+      series: [{ data }],
+      colors: [color],
+      stroke: { width: 1.5, curve: 'smooth' },
+      tooltip: { enabled: false }
+    };
+    if (existing) { existing.updateOptions(opts); return existing; }
+    const chart = new ApexCharts(document.getElementById(elId), opts);
+    chart.render();
+    return chart;
+  }
   function renderDashboardCharts(d) {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
     const fg = isLight ? '#12232f' : '#e6edf3';
@@ -730,6 +787,11 @@
     };
     if (typesChart) typesChart.updateOptions(typesOptions);
     else { typesChart = new ApexCharts(document.getElementById('chart-types'), typesOptions); typesChart.render(); }
+
+    const revSeries = (d.last7Days || []).map(x => x.revenueGHS);
+    const ordSeries = (d.last7Days || []).map(x => x.orders);
+    sparkRevChart = renderSparkline('spark-today-rev', revSeries, '#29a8e0', sparkRevChart);
+    sparkOrdChart = renderSparkline('spark-today-orders', ordSeries, '#2ecc71', sparkOrdChart);
   }
 
   function loadDashboard() {
@@ -891,10 +953,18 @@
     }, 3000);
   }
   function renderVouchers(codes, packageId, priceGHS) {
-    document.getElementById('voucher-grid').innerHTML = codes.map(code => `
+    document.getElementById('voucher-grid').innerHTML = codes.map((code, i) => `
       <div class="voucher-card"><div class="pkg">${packageId}</div><div class="code">${code}</div>
+      <svg class="voucher-barcode" id="vb-${i}"></svg>
       <div class="pkg" style="font-weight:700;color:var(--green);">GHS ${(priceGHS || 0).toFixed(2)}</div>
       <div class="pkg">Use as Username &amp; Password</div><div class="brand">NETGHWiFi</div></div>`).join('');
+    // Scannable barcode so a phone camera / scanner can capture the code
+    // directly instead of someone typing it in manually.
+    codes.forEach((code, i) => {
+      try {
+        JsBarcode('#vb-' + i, code, { format: 'CODE128', height: 34, width: 1.6, displayValue: false, margin: 0, background: 'transparent', lineColor: '#000' });
+      } catch (e) { /* skip if a code has odd characters */ }
+    });
   }
 
   // ---- Customers ----
@@ -962,9 +1032,10 @@
       document.getElementById('stat-mem').textContent = s.freeMemory ? Math.round(s.freeMemory/1024/1024) + ' MB' : '-';
       document.getElementById('stat-uptime').textContent = s.uptime || '-';
       document.getElementById('stats-updated').textContent = s.reportedAt ? 'Live \u2014 last updated: ' + new Date(s.reportedAt).toLocaleTimeString() : 'No data yet - install the router stats script.';
-      document.getElementById('active-body').innerHTML = (s.activeUsers||[]).map(u => `<tr><td>${u.user}</td><td>${u.address}</td><td>${u.uptime}</td></tr>`).join('') ||
-        '<tr><td colspan="3" style="color:var(--muted);">No active sessions.</td></tr>';
+      document.getElementById('active-body').innerHTML = (s.activeUsers||[]).map(u => `<tr><td>${u.device || '<span style="color:var(--muted);">Unknown</span>'}</td><td>${u.user}</td><td>${u.address}</td><td>${u.uptime}</td></tr>`).join('') ||
+        '<tr><td colspan="4" style="color:var(--muted);">No active sessions.</td></tr>';
       renderLiveChart(s.history || []);
+      renderDataUsageChart(s.history || []);
     }).catch(() => {});
 
     // Auto-refresh every 10s while this tab is open - stops when you leave it.
@@ -990,6 +1061,29 @@
     };
     if (liveChart) liveChart.updateOptions(options);
     else { liveChart = new ApexCharts(document.getElementById('chart-live-trend'), options); liveChart.render(); }
+  }
+
+  let dataUsageChart = null;
+  function renderDataUsageChart(history) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const fg = isLight ? '#12232f' : '#e6edf3';
+    const toMB = b => +((b || 0) / (1024 * 1024)).toFixed(1);
+    const options = {
+      chart: { type: 'area', height: 200, toolbar: { show: false }, foreColor: fg, animations: { easing: 'linear', dynamicAnimation: { speed: 500 } } },
+      series: [
+        { name: 'Download (MB)', data: history.map(h => toMB(h.totalBytesIn)) },
+        { name: 'Upload (MB)', data: history.map(h => toMB(h.totalBytesOut)) }
+      ],
+      xaxis: { categories: history.map(h => new Date(h.timestamp).toLocaleTimeString().slice(0, 5)), labels: { rotate: 0 } },
+      colors: ['#29a8e0', '#2ecc71'],
+      stroke: { curve: 'smooth', width: 2 },
+      fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+      dataLabels: { enabled: false },
+      grid: { borderColor: isLight ? '#dbe6ee' : '#262e3a' },
+      legend: { position: 'top' }
+    };
+    if (dataUsageChart) dataUsageChart.updateOptions(options);
+    else { dataUsageChart = new ApexCharts(document.getElementById('chart-data-usage'), options); dataUsageChart.render(); }
   }
 
   // ---- Reports ----

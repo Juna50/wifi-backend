@@ -26,7 +26,7 @@
   :root {
     --blue:#3badf0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e5504a; --amber:#f0a93b; --violet:#8b6ef0;
     --bg:#0b0e13; --card:#151a23; --border:#262e3a; --text:#eef2f6; --muted:#94a3b5; --input:#0e131b;
-    --sidebar:#090c11;
+    --sidebar:#090c11; --radius:14px;
   }
   [data-theme="light"] {
     --bg:#f4f8fb; --card:#ffffff; --border:#dbe6ee; --text:#12232f; --muted:#5c7488; --input:#f3faf8; --sidebar:#0e2a5e;
@@ -76,13 +76,13 @@
     .modal-box { padding:16px; }
     .login-card-body { padding:24px 18px; }
   }
-  input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
+  input, select, textarea { width:100%; padding:10px; border-radius:calc(var(--radius) * 0.57); border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
   input:disabled { opacity:.6; cursor:not-allowed; }
   select { color-scheme: dark; }
   [data-theme="light"] select { color-scheme: light; }
   select option { background:var(--input); color:var(--text); }
   textarea { resize:vertical; min-height:70px; }
-  button { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
+  button { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; border:none; padding:10px 16px; border-radius:calc(var(--radius) * 0.57); font-weight:700; cursor:pointer; font-size:13px; }
   button.secondary { background:var(--border); color:var(--text); }
   button.danger { background:var(--red); }
   button:disabled { opacity:.5; cursor:not-allowed; }
@@ -110,11 +110,33 @@
   .topbar h1 { font-size:18px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; min-width:34px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 
-  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
+  /* ---- Theme customizer ---- */
+  #cust-overlay { display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.5); }
+  #cust-overlay.open { display:block; }
+  #cust-panel { position:fixed; top:0; bottom:0; right:0; z-index:301; width:320px; max-width:85vw; background:var(--card); border-left:1px solid var(--border); box-shadow:-10px 0 40px rgba(0,0,0,0.35); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .28s ease; }
+  #cust-panel.open { transform:translateX(0); }
+  .cust-head { display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+  .cust-head h2 { margin:0; font-size:15px; }
+  .cust-head p { margin:3px 0 0; font-size:12px; color:var(--muted); }
+  .cust-close-btn { background:var(--border); color:var(--text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cust-body { flex:1; overflow-y:auto; padding:18px; }
+  .cust-section { margin-bottom:22px; }
+  .cust-label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  .cust-tabs { display:flex; gap:4px; background:var(--input); border:1px solid var(--border); padding:4px; border-radius:calc(var(--radius) * 0.57); }
+  .cust-tab { flex:1; text-align:center; background:none; border:none; color:var(--muted); padding:7px 4px; font-size:12px; font-weight:700; border-radius:calc(var(--radius) * 0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .cust-tab.active { background:var(--card); color:var(--text); box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+  .cust-swatches { display:flex; flex-wrap:wrap; gap:10px; }
+  .cust-swatch { width:30px; height:30px; border-radius:50%; border:none; cursor:pointer; box-shadow:0 0 0 2px var(--card), 0 0 0 2px transparent; outline:2px solid transparent; outline-offset:2px; }
+  .cust-swatch.active { outline-color:var(--text); }
+  .cust-reset-btn { width:100%; }
+  .cust-foot { border-top:1px solid var(--border); padding:14px 18px; }
+  #cust-trigger-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; min-width:34px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
 
   .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:16px; }
   .modal-overlay.open { display:flex; }
-  .modal-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; width:100%; max-width:380px; box-shadow:0 20px 50px rgba(0,0,0,0.35); max-height:85vh; overflow-y:auto; }
+  .modal-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px; width:100%; max-width:380px; box-shadow:0 20px 50px rgba(0,0,0,0.35); max-height:85vh; overflow-y:auto; }
   .modal-box h3 { margin:0 0 14px; }
   .modal-close-btn { float:right; background:var(--border); color:var(--text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1; }
   .detail-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
@@ -225,7 +247,12 @@
           </button>
           <h1 id="page-title">Dashboard</h1>
         </div>
-        <button class="theme-btn" onclick="toggleTheme()" id="theme-toggle-btn">&#9728;&#65039;</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-toggle-btn">&#9728;&#65039;</button>
+          <button id="cust-trigger-btn" onclick="openCustomizer()" title="Customize appearance">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+          </button>
+        </div>
       </div>
 
       <!-- DASHBOARD -->
@@ -647,17 +674,77 @@
   let adminKey = "";
   let myRole = "cashier";
 
+  const ACCENTS = {
+    blue:   { c: '#3badf0', d: '#1b7fb0' },
+    teal:   { c: '#14b8a6', d: '#0d9488' },
+    violet: { c: '#8b5cf6', d: '#6d28d9' },
+    rose:   { c: '#f43f5e', d: '#be123c' },
+    green:  { c: '#22c55e', d: '#15803d' },
+    amber:  { c: '#f0a93b', d: '#b9791f' }
+  };
+
   function applyTheme(theme) {
+    // theme here is the *resolved* light/dark value actually painted on screen
     document.documentElement.setAttribute('data-theme', theme);
     const btn = document.getElementById('theme-toggle-btn');
     if (btn) btn.textContent = theme === 'light' ? '\u{1F319}' : '\u2600\uFE0F';
-    try { localStorage.setItem('ngw-admin-theme', theme); } catch (e) {}
+  }
+  function resolveMode(mode) {
+    if (mode === 'auto') {
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    return mode;
+  }
+  function setThemeMode(mode) {
+    try { localStorage.setItem('ngw-admin-theme-mode', mode); } catch (e) {}
+    applyTheme(resolveMode(mode));
+    document.querySelectorAll('#cust-theme-tabs .cust-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   }
   function toggleTheme() {
     const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    applyTheme(cur === 'light' ? 'dark' : 'light');
+    setThemeMode(cur === 'light' ? 'dark' : 'light');
   }
-  (function () { let s; try { s = localStorage.getItem('ngw-admin-theme'); } catch (e) {} applyTheme(s || 'dark'); })();
+  function setAccent(name) {
+    const a = ACCENTS[name] || ACCENTS.blue;
+    document.documentElement.style.setProperty('--blue', a.c);
+    document.documentElement.style.setProperty('--blue-dark', a.d);
+    try { localStorage.setItem('ngw-admin-accent', name); } catch (e) {}
+    document.querySelectorAll('#cust-accent-swatches .cust-swatch').forEach(s => s.classList.toggle('active', s.dataset.accent === name));
+  }
+  function setRadius(px) {
+    document.documentElement.style.setProperty('--radius', px);
+    try { localStorage.setItem('ngw-admin-radius', px); } catch (e) {}
+    document.querySelectorAll('#cust-radius-tabs .cust-tab').forEach(t => t.classList.toggle('active', t.dataset.radius === px));
+  }
+  function openCustomizer() {
+    document.getElementById('cust-overlay').classList.add('open');
+    document.getElementById('cust-panel').classList.add('open');
+  }
+  function closeCustomizer() {
+    document.getElementById('cust-overlay').classList.remove('open');
+    document.getElementById('cust-panel').classList.remove('open');
+  }
+  function resetCustomizer() {
+    setThemeMode('dark');
+    setAccent('blue');
+    setRadius('14px');
+  }
+  (function () {
+    let mode, accent, radius;
+    try {
+      mode = localStorage.getItem('ngw-admin-theme-mode') || localStorage.getItem('ngw-admin-theme') || 'dark';
+      accent = localStorage.getItem('ngw-admin-accent') || 'blue';
+      radius = localStorage.getItem('ngw-admin-radius') || '14px';
+    } catch (e) { mode = 'dark'; accent = 'blue'; radius = '14px'; }
+    setThemeMode(mode);
+    setAccent(accent);
+    setRadius(radius);
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        try { if ((localStorage.getItem('ngw-admin-theme-mode') || 'dark') === 'auto') applyTheme(resolveMode('auto')); } catch (e) {}
+      });
+    }
+  })();
 
   // ---- mobile sidebar ----
   function toggleSidebar() {
@@ -1534,5 +1621,50 @@
       <div id="voucher-modal-body"></div>
     </div>
   </div>
+
+  <!-- Theme customizer -->
+  <div id="cust-overlay" onclick="closeCustomizer()"></div>
+  <aside id="cust-panel" role="dialog" aria-label="Theme customizer">
+    <div class="cust-head">
+      <div>
+        <h2>Customize</h2>
+        <p>Personalize the look &amp; feel</p>
+      </div>
+      <button class="cust-close-btn" onclick="closeCustomizer()" aria-label="Close">&times;</button>
+    </div>
+    <div class="cust-body">
+      <div class="cust-section">
+        <div class="cust-label">Theme</div>
+        <div class="cust-tabs" id="cust-theme-tabs">
+          <button type="button" class="cust-tab" data-mode="light" onclick="setThemeMode('light')">&#9728;&#65039; Light</button>
+          <button type="button" class="cust-tab" data-mode="dark" onclick="setThemeMode('dark')">&#127769; Dark</button>
+          <button type="button" class="cust-tab" data-mode="auto" onclick="setThemeMode('auto')">&#9881;&#65039; Auto</button>
+        </div>
+      </div>
+      <div class="cust-section">
+        <div class="cust-label">Accent color</div>
+        <div class="cust-swatches" id="cust-accent-swatches">
+          <button type="button" class="cust-swatch" data-accent="blue" title="Blue" style="background:#3badf0" onclick="setAccent('blue')"></button>
+          <button type="button" class="cust-swatch" data-accent="teal" title="Teal" style="background:#14b8a6" onclick="setAccent('teal')"></button>
+          <button type="button" class="cust-swatch" data-accent="violet" title="Violet" style="background:#8b5cf6" onclick="setAccent('violet')"></button>
+          <button type="button" class="cust-swatch" data-accent="rose" title="Rose" style="background:#f43f5e" onclick="setAccent('rose')"></button>
+          <button type="button" class="cust-swatch" data-accent="green" title="Green" style="background:#22c55e" onclick="setAccent('green')"></button>
+          <button type="button" class="cust-swatch" data-accent="amber" title="Amber" style="background:#f0a93b" onclick="setAccent('amber')"></button>
+        </div>
+      </div>
+      <div class="cust-section">
+        <div class="cust-label">Border radius</div>
+        <div class="cust-tabs" id="cust-radius-tabs">
+          <button type="button" class="cust-tab" data-radius="0px" onclick="setRadius('0px')">None</button>
+          <button type="button" class="cust-tab" data-radius="8px" onclick="setRadius('8px')">Small</button>
+          <button type="button" class="cust-tab" data-radius="14px" onclick="setRadius('14px')">Medium</button>
+          <button type="button" class="cust-tab" data-radius="22px" onclick="setRadius('22px')">Large</button>
+        </div>
+      </div>
+    </div>
+    <div class="cust-foot">
+      <button class="secondary cust-reset-btn" onclick="resetCustomizer()">Reset to defaults</button>
+    </div>
+  </aside>
 </body>
 </html>

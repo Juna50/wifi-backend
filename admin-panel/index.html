@@ -1,0 +1,1709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETGHWiFi Admin</title>
+<link rel="icon" href="assets/favicon.png">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+  @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes popIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+  .tab-panel.active { animation: fadeSlideIn 0.35s ease; }
+  .stat-box { animation: popIn 0.3s ease backwards; }
+  .stat-box:nth-child(1){animation-delay:.02s} .stat-box:nth-child(2){animation-delay:.06s}
+  .stat-box:nth-child(3){animation-delay:.10s} .stat-box:nth-child(4){animation-delay:.14s}
+  .stat-box:nth-child(5){animation-delay:.18s} .stat-box:nth-child(6){animation-delay:.22s}
+  .stat-box:nth-child(7){animation-delay:.26s}
+  .nav-item svg { vertical-align:-3px; margin-right:8px; }
+  .nav-item { transition: background .15s ease, padding-left .15s ease; }
+  .nav-item:hover { padding-left:22px; }
+  .voucher-card { animation: popIn 0.25s ease backwards; }
+  .card { animation: fadeSlideIn 0.3s ease; }
+  .sidebar .brand img { width:30px; height:30px; border-radius:50%; vertical-align:-9px; margin-right:8px; }
+
+  :root {
+    --blue:#3badf0; --blue-dark:#1b7fb0; --green:#2ecc71; --red:#e5504a; --amber:#f0a93b; --violet:#8b6ef0;
+    --bg:#0b0e13; --card:#151a23; --border:#262e3a; --text:#eef2f6; --muted:#94a3b5; --input:#0e131b;
+    --sidebar:#090c11; --radius:14px;
+  }
+  [data-theme="light"] {
+    --bg:#f4f8fb; --card:#ffffff; --border:#dbe6ee; --text:#12232f; --muted:#5c7488; --input:#f3faf8; --sidebar:#0e2a5e;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Segoe UI',Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  html, body { overflow-x:hidden; max-width:100vw; }
+  #login-gate { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; background:radial-gradient(circle at top, var(--card) 0%, var(--bg) 70%); }
+  .login-card { width:100%; max-width:360px; background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.25); animation: popIn 0.35s ease; }
+  .login-card-top { height:5px; background:linear-gradient(90deg,var(--blue),var(--blue-dark)); }
+  .login-card-body { padding:32px 26px; text-align:center; }
+  .login-logo { width:60px; height:60px; border-radius:50%; margin-bottom:10px; }
+  .login-card-body h1 { color:var(--blue); font-size:20px; margin:0; }
+  .login-tagline { color:var(--muted); font-size:13px; margin:6px 0 20px; }
+  .login-input-group { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:0 10px; background:var(--input); margin-bottom:14px; }
+  .login-input-group svg { color:var(--muted); flex-shrink:0; }
+  .login-input-group input { border:none; margin:0; background:transparent; padding:10px 0; }
+  .login-input-group input:focus { outline:none; }
+
+  /* Blinking live indicator */
+  .live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); margin-right:6px; animation: pulseDot 1.4s ease-in-out infinite; }
+  @keyframes pulseDot { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(46,204,113,0.5); } 50% { opacity:0.5; box-shadow:0 0 0 6px rgba(46,204,113,0); } }
+
+  .hamburger-btn { display:none; background:var(--card); border:1px solid var(--border); color:var(--text); width:34px; height:34px; border-radius:8px; cursor:pointer; }
+  .sidebar-overlay { display:none; }
+  input, select, textarea { width:100%; padding:10px; border-radius:calc(var(--radius) * 0.57); border:1px solid var(--border); background:var(--input); color:var(--text); font-size:14px; margin-bottom:12px; font-family:inherit; }
+  input:disabled { opacity:.6; cursor:not-allowed; }
+  select { color-scheme: dark; }
+  [data-theme="light"] select { color-scheme: light; }
+  select option { background:var(--input); color:var(--text); }
+  textarea { resize:vertical; min-height:70px; }
+  button { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; border:none; padding:10px 16px; border-radius:calc(var(--radius) * 0.57); font-weight:700; cursor:pointer; font-size:13px; }
+  button.secondary { background:var(--border); color:var(--text); }
+  button.danger { background:var(--red); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .status { font-size:13px; margin-top:8px; min-height:18px; }
+  .status.error { color:var(--red); }
+  .status.ok { color:var(--green); }
+
+  #shell { display:none; }
+  .layout { display:flex; min-height:100vh; }
+  .sidebar { width:210px; background:var(--sidebar); flex-shrink:0; padding:18px 0; transition:width .2s ease; position:relative; }
+  .rail-toggle { display:none; position:absolute; top:64px; right:-13px; width:26px; height:26px; border-radius:50%; background:var(--blue); border:2px solid var(--sidebar); color:#fff; cursor:pointer; align-items:center; justify-content:center; z-index:5; }
+  @media (min-width:821px) { body.sidebar-expand-lg .rail-toggle { display:flex; } }
+  body.sidebar-expand-lg.sidebar-collapsed .sidebar { width:60px; }
+  body.sidebar-expand-lg.sidebar-collapsed .sidebar .brand span,
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item .label { display:none; }
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item { text-align:center; padding:11px 0; }
+  body.sidebar-expand-lg.sidebar-collapsed .nav-item svg { margin-right:0; }
+  body.sidebar-expand-lg.sidebar-collapsed .rail-toggle svg { transform:rotate(180deg); }
+  .sidebar .brand { color:#fff; font-weight:800; font-size:16px; padding:0 18px 18px; }
+  .nav-item { display:block; width:100%; text-align:left; background:none; border:none; color:rgba(255,255,255,0.75); padding:11px 18px; font-size:13px; font-weight:600; cursor:pointer; border-radius:0; }
+  .nav-item:hover { background:rgba(255,255,255,0.06); }
+  .nav-item.active { background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; box-shadow:0 4px 14px rgba(59,173,240,0.35); }
+  .main { flex:1; min-width:0; padding:22px 24px 60px; max-width:1100px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; position:sticky; top:0; z-index:30; background:var(--bg); padding:6px 0; }
+  .topbar h1 { font-size:18px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .theme-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; min-width:34px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+
+  /* ---- Theme customizer ---- */
+  #cust-overlay { display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.5); }
+  #cust-overlay.open { display:block; }
+  #cust-panel { position:fixed; top:0; bottom:0; right:0; z-index:301; width:320px; max-width:85vw; background:var(--card); border-left:1px solid var(--border); box-shadow:-10px 0 40px rgba(0,0,0,0.35); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .28s ease; }
+  #cust-panel.open { transform:translateX(0); }
+  .cust-head { display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+  .cust-head h2 { margin:0; font-size:15px; }
+  .cust-head p { margin:3px 0 0; font-size:12px; color:var(--muted); }
+  .cust-close-btn { background:var(--border); color:var(--text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cust-body { flex:1; overflow-y:auto; padding:18px; }
+  .cust-section { margin-bottom:22px; }
+  .cust-label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  .cust-tabs { display:flex; gap:4px; background:var(--input); border:1px solid var(--border); padding:4px; border-radius:calc(var(--radius) * 0.57); }
+  .cust-tab { flex:1; text-align:center; background:none; border:none; color:var(--muted); padding:7px 4px; font-size:12px; font-weight:700; border-radius:calc(var(--radius) * 0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .cust-tab.active { background:var(--card); color:var(--text); box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+  .cust-swatches { display:flex; flex-wrap:wrap; gap:10px; }
+  .cust-swatch { width:30px; height:30px; border-radius:50%; border:none; cursor:pointer; box-shadow:0 0 0 2px var(--card), 0 0 0 2px transparent; outline:2px solid transparent; outline-offset:2px; }
+  .cust-swatch.active { outline-color:var(--text); }
+  .cust-reset-btn { width:100%; }
+  .cust-foot { border-top:1px solid var(--border); padding:14px 18px; }
+  #cust-trigger-btn { border:1px solid var(--border); background:var(--card); color:var(--text); width:34px; height:34px; min-width:34px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:18px; box-shadow:0 4px 18px rgba(0,0,0,0.12); }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open { display:flex; }
+  .modal-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px; width:100%; max-width:380px; box-shadow:0 20px 50px rgba(0,0,0,0.35); max-height:85vh; overflow-y:auto; }
+  .modal-box h3 { margin:0 0 14px; }
+  .modal-close-btn { float:right; background:var(--border); color:var(--text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1; }
+  .detail-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .detail-row:last-child { border-bottom:none; }
+  .detail-row .k { color:var(--muted); }
+  .detail-row .v { text-align:right; word-break:break-all; font-weight:600; }
+  .voucher-code-box { font-family:monospace; font-size:20px; font-weight:700; text-align:center; background:var(--input); border:1px dashed var(--border); border-radius:10px; padding:14px; margin:14px 0; letter-spacing:1px; }
+  .card h2 { font-size:15px; margin:0 0 14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .row > * { flex:1; min-width:130px; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; }
+  .badge { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+  .badge.success { background:rgba(46,204,113,.15); color:var(--green); }
+  .badge.pending { background:rgba(224,165,59,.15); color:var(--amber); }
+  .badge.failed { background:rgba(224,80,59,.15); color:var(--red); }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat-box { background:var(--input); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:left; position:relative; overflow:hidden; }
+  .stat-box .icon { width:30px; height:30px; border-radius:8px; background:rgba(41,168,224,0.15); color:var(--blue); display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+  .stat-box .num { font-size:22px; font-weight:800; color:var(--blue); }
+  .stat-box .lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+  .stat-box .spark { position:absolute; right:0; bottom:0; width:70px; height:32px; opacity:0.55; }
+
+  .voucher-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-top:16px; }
+  .voucher-card { border:1.5px dashed var(--blue); border-radius:10px; padding:12px; text-align:center; background:var(--input); }
+  .voucher-card .code { font-size:18px; font-weight:800; letter-spacing:1px; color:var(--blue); margin:4px 0; }
+  .voucher-card .pkg, .voucher-card .brand { font-size:11px; color:var(--muted); }
+  .voucher-barcode { display:block; width:100%; max-width:180px; height:36px; margin:4px auto; }
+
+  .product-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--input); text-align:center; }
+  .product-card img { width:100%; height:90px; object-fit:cover; border-radius:8px; margin-bottom:8px; background:var(--card); }
+  .product-card .p-name { font-weight:700; font-size:14px; }
+  .product-card .p-price { color:var(--blue); font-weight:800; font-size:16px; margin:4px 0; }
+  .product-card .p-meta { font-size:11px; color:var(--muted); margin-bottom:8px; }
+  .product-card.inactive { opacity:0.5; }
+
+  .checkline { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .checkline input { width:auto; margin:0; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  .pill-tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .pill-tabs button { background:var(--border); color:var(--text); }
+  .pill-tabs button.active { background:var(--blue); color:#fff; }
+  .keybox { background:var(--input); border:1px dashed var(--blue); border-radius:8px; padding:10px; font-family:monospace; font-size:13px; word-break:break-all; }
+
+  /* Mobile sidebar & layout — must stay AFTER the base .sidebar/.main/.topbar rules
+     above so these overrides actually win the cascade on small screens. */
+  @media (max-width:820px) {
+    .hamburger-btn { display:inline-flex; align-items:center; justify-content:center; }
+    .layout { position:relative; }
+    .sidebar { position:fixed; top:0; left:0; height:100vh; z-index:60; width:230px; flex-direction:column; overflow-y:auto; transform:translateX(-100%); transition:transform .25s ease; display:flex; }
+    .sidebar.open { transform:translateX(0); }
+    .sidebar .brand { display:block; }
+    .nav-item { white-space:normal; }
+    .main { padding:16px; width:100%; max-width:100%; }
+    .sidebar-overlay.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:55; }
+  }
+  @media (max-width:480px) {
+    .main { padding:12px 12px 60px; }
+    .card { padding:14px; border-radius:12px; }
+    .topbar { gap:6px; }
+    .topbar h1 { font-size:16px; }
+    .topbar > div:first-child { gap:6px; min-width:0; }
+    .topbar > div:last-child { gap:5px; }
+    .theme-btn, #cust-trigger-btn { width:30px; height:30px; min-width:30px; }
+    .row { gap:0; }
+    .row > * { min-width:100%; }
+    .stat-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
+    .voucher-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+    table { font-size:12px; }
+    button { padding:9px 12px; font-size:12.5px; }
+    .modal-box { padding:16px; }
+    .login-card-body { padding:24px 18px; }
+    #cust-panel { width:280px; }
+  }
+
+  @media print {
+    body * { visibility:hidden; }
+    #print-area, #print-area * { visibility:visible; }
+    #print-area { position:absolute; top:0; left:0; width:100%; }
+    .voucher-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .voucher-card { border:1px dashed #000; color:#000; }
+    .voucher-card .code, .voucher-card .pkg, .voucher-card .brand { color:#000; }
+  }
+</style>
+</head>
+<body class="sidebar-expand-lg">
+
+<div id="login-gate">
+  <div class="login-card">
+    <div class="login-card-top"></div>
+    <div class="login-card-body">
+      <img src="assets/logo.png" alt="NETGHWiFi" class="login-logo">
+      <h1>NETGHWiFi</h1>
+      <p class="login-tagline">Sign in to manage your hotspot</p>
+      <div class="login-input-group">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <input type="password" id="admin-key-input" placeholder="Admin key" onkeydown="if(event.key==='Enter')login()">
+      </div>
+      <button onclick="login()" style="width:100%;">Sign In</button>
+      <div id="login-status" class="status error"></div>
+    </div>
+  </div>
+</div>
+
+<div id="shell">
+  <div class="layout">
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+      <div class="brand"><img src="assets/logo.png" alt="NETGHWiFi"><span>NETGHWiFi</span></div>
+      <button class="rail-toggle" onclick="toggleRail()" title="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg>
+      </button>
+      <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="label">Dashboard</span></button>
+      <button class="nav-item" data-tab="billing" onclick="showTab('billing')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg><span class="label">Billing</span></button>
+      <button class="nav-item" data-tab="payments" onclick="showTab('payments')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg><span class="label">Payments</span></button>
+      <button class="nav-item role-admin-only" data-tab="products" onclick="showTab('products')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg><span class="label">Products</span></button>
+      <button class="nav-item" data-tab="vouchers" onclick="showTab('vouchers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"></path><path d="M12 6v2M12 16v2M12 11v2"></path></svg><span class="label">Vouchers</span></button>
+      <button class="nav-item" data-tab="customers" onclick="showTab('customers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span class="label">Customers</span></button>
+      <button class="nav-item" data-tab="sms" onclick="showTab('sms')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.38 8.5 8.5 0 0 1-4-1L3 20l1.12-5.5A8.5 8.5 0 1 1 21 11.5z"></path></svg><span class="label">SMS</span></button>
+      <button class="nav-item" data-tab="live" onclick="showTab('live')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg><span class="label">Monitoring</span></button>
+      <button class="nav-item" data-tab="reports" onclick="showTab('reports')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg><span class="label">Reports</span></button>
+      <button class="nav-item role-admin-only" data-tab="logs" onclick="showTab('logs')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg><span class="label">Activity Logs</span></button>
+      <button class="nav-item role-admin-only" data-tab="users" onclick="showTab('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><circle cx="19" cy="9" r="2.5"></circle></svg><span class="label">Users</span></button>
+      <button class="nav-item role-admin-only" data-tab="terminal" onclick="showTab('terminal')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg><span class="label">Terminal</span></button>
+      <button class="nav-item role-admin-only" data-tab="settings" onclick="showTab('settings')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span class="label">Settings</span></button>
+      <button class="nav-item" onclick="logout()" style="color:var(--red);margin-top:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg><span class="label">Logout</span></button>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="hamburger-btn" onclick="toggleSidebar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+          </button>
+          <h1 id="page-title">Dashboard</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-toggle-btn">&#9728;&#65039;</button>
+          <button id="cust-trigger-btn" onclick="openCustomizer()" title="Customize appearance">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="card" id="welcome-banner" style="background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;border:none;">
+          <h2 style="margin:0 0 4px;color:#fff;" id="welcome-heading">Welcome back</h2>
+          <p style="margin:0;color:rgba(255,255,255,0.85);font-size:13.5px;">Here's what's happening with your Hotspot business today.</p>
+        </div>
+        <div class="card">
+          <div class="stat-grid">
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+              <div class="num" id="d-today-rev">-</div><div class="lbl">Today Revenue (GHS)</div>
+              <div class="spark" id="spark-today-rev"></div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 2-1.58l1.65-7.42H5.12"></path></svg></div>
+              <div class="num" id="d-today-orders">-</div><div class="lbl">Today Orders</div>
+              <div class="spark" id="spark-today-orders"></div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+              <div class="num" id="d-week-rev">-</div><div class="lbl">7-Day Revenue (GHS)</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg></div>
+              <div class="num" id="d-week-orders">-</div><div class="lbl">7-Day Orders</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+              <div class="num" id="d-pending">-</div><div class="lbl">Pending Bills</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+              <div class="num" id="d-customers">-</div><div class="lbl">Total Customers</div>
+            </div>
+            <div class="stat-box">
+              <div class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg></div>
+              <div class="num"><span class="live-dot" id="d-active-dot" style="display:none;"></span><span id="d-active">-</span></div><div class="lbl">Active Now</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="align-items:stretch;">
+          <div class="card" style="flex:2;min-width:280px;">
+            <h2>Revenue - Last 7 Days</h2>
+            <div id="chart-revenue"></div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px;">
+            <h2>Revenue by Type</h2>
+            <div id="chart-types"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Quick Actions</h2>
+          <div class="row">
+            <button onclick="showTab('vouchers')">Generate Vouchers</button>
+            <button class="secondary" onclick="showTab('billing')">Create Manual Bill</button>
+            <button class="secondary" onclick="showTab('sms')">Send SMS</button>
+            <button class="secondary" onclick="showTab('reports')">Export Report</button>
+          </div>
+        </div>
+
+        <div class="row" style="align-items:stretch;">
+          <div class="card" style="flex:2;min-width:280px;">
+            <h2>Recent Billing</h2>
+            <div style="overflow-x:auto;">
+              <table><thead><tr><th>Reference</th><th>Type</th><th>Phone</th><th>Amount</th><th>Status</th></tr></thead><tbody id="d-recent-billing"></tbody></table>
+            </div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px;">
+            <h2>Router Snapshot</h2>
+            <p style="font-size:13px;margin:0 0 6px;"><strong id="d-live-active">-</strong> active now</p>
+            <p style="font-size:13px;margin:0 0 6px;">CPU: <strong id="d-live-cpu">-</strong></p>
+            <p style="font-size:13px;margin:0 0 10px;">Uptime: <strong id="d-live-uptime">-</strong></p>
+            <button class="secondary" onclick="showTab('live')" style="width:100%;">View Full Monitoring</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Recent Activity</h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Actor</th><th>Action</th><th>Date</th></tr></thead><tbody id="d-recent-activity"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BILLING -->
+      <div class="tab-panel" id="tab-billing">
+        <div class="card">
+          <h2>Create Manual Bill</h2>
+          <div class="row">
+            <div><label>Phone</label><input id="mb-phone" placeholder="0XXXXXXXXX"></div>
+            <div><label>Package / Label</label><input id="mb-package" placeholder="e.g. 12 Hours"></div>
+            <div><label>Amount (GHS)</label><input id="mb-amount" type="number" step="0.01"></div>
+            <div><label>Note</label><input id="mb-note" placeholder="optional"></div>
+          </div>
+          <button onclick="createManualBill()">Create Bill</button>
+          <div id="mb-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Billing <button class="secondary" style="float:right;" onclick="loadBilling()">Refresh</button></h2>
+          <div class="row" style="margin-bottom:10px;">
+            <div><label>Type</label><select id="bill-filter-type" onchange="loadBilling()">
+              <option value="">All</option><option value="online">Online</option><option value="cash">Cash/Voucher</option><option value="manual">Manual</option>
+            </select></div>
+            <div><label>Status</label><select id="bill-filter-status" onchange="loadBilling()">
+              <option value="">All</option><option value="pending">Pending</option><option value="success">Success</option><option value="failed">Failed</option>
+            </select></div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Reference</th><th>Type</th><th>Package</th><th>Phone</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="billing-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENTS -->
+      <div class="tab-panel" id="tab-payments">
+        <div class="card">
+          <div class="pill-tabs">
+            <button class="active" id="pay-tab-online" onclick="loadPayments('online')">Online (Paystack)</button>
+            <button id="pay-tab-voucher" onclick="loadPayments('voucher')">Voucher / Cash</button>
+          </div>
+          <div id="pay-total" style="font-weight:700;margin-bottom:10px;"></div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Reference</th><th>Package</th><th>Phone</th><th>Amount</th><th>Date</th></tr></thead>
+              <tbody id="payments-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div class="tab-panel" id="tab-products">
+        <div class="card">
+          <h2 id="pd-form-title">Add Product</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            <strong>productId</strong> must exactly match (or become) a router hotspot user profile name.
+            Creating a product auto-queues a Terminal command to create that profile - confirm it ran in
+            Terminal history before selling this package.
+          </p>
+          <div class="row">
+            <div><label>Product ID (router profile name)</label><input id="pd-productid" placeholder="e.g. 6 Hours"></div>
+            <div><label>Display Name</label><input id="pd-name" placeholder="e.g. 6 Hours"></div>
+          </div>
+          <div class="row">
+            <div><label>Price (GHS)</label><input id="pd-price" type="number" step="0.01"></div>
+            <div><label>Duration</label><input id="pd-duration" type="number" step="0.1" placeholder="e.g. 6 or 7"></div>
+            <div><label>Duration Unit</label><select id="pd-duration-unit"><option value="minutes">Minutes</option><option value="hours" selected>Hours</option><option value="days">Days</option></select></div>
+            <div><label>Type</label><select id="pd-type"><option value="limited">Limited</option><option value="unlimited">Unlimited</option><option value="trial">Trial</option></select></div>
+          </div>
+          <div class="row">
+            <div><label>Data Amount</label><input id="pd-data" placeholder="e.g. Time-based, 5 GB, Unlimited" value="Time-based"></div>
+            <div><label>Speed</label><input id="pd-speed" placeholder="e.g. 15 Mbps" value="15 Mbps"></div>
+            <div><label>Rate Limit (RouterOS)</label><input id="pd-ratelimit" placeholder="e.g. 5M/5M" value="5M/5M"></div>
+          </div>
+          <div class="row">
+            <div><label>Badge (optional)</label><input id="pd-badge" placeholder="e.g. SPECIAL OFFER"></div>
+            <div><label>Features (comma-separated)</label><input id="pd-features" placeholder="HD Streaming, Video Calls"></div>
+          </div>
+          <label>Image (optional, under ~500KB)</label>
+          <input type="file" id="pd-image" accept="image/*">
+          <img id="pd-image-preview" style="display:none;max-width:120px;border-radius:8px;margin-bottom:12px;">
+          <button onclick="createProduct()" id="pd-submit-btn">Add Product</button>
+          <button class="secondary" onclick="cancelEditProduct()" id="pd-cancel-btn" style="display:none;margin-left:8px;">Cancel Edit</button>
+          <div id="pd-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>
+            Catalog <button class="secondary" style="float:right;" onclick="loadProducts()">Refresh</button>
+            <button class="secondary" style="float:right;margin-right:8px;" onclick="seedDefaultProducts()">Seed Defaults (one-time)</button>
+          </h2>
+          <div class="voucher-grid" id="products-grid"></div>
+        </div>
+      </div>
+
+      <!-- VOUCHERS -->
+      <div class="tab-panel" id="tab-vouchers">
+        <div class="card">
+          <h2>Generate Vouchers</h2>
+          <div class="row">
+            <div><label>Package</label>
+              <select id="gen-package">
+                <option value="5 Hours">5 Hours</option><option value="12 Hours">12 Hours</option>
+                <option value="1 Day Falaaa">1 Day Falaaa</option><option value="2 Days Turbo Max">2 Days Turbo Max</option>
+                <option value="1Hr Unlimited">1Hr Unlimited</option><option value="24Hr Unlimited">24Hr Unlimited</option>
+                <option value="test">Test (5 min)</option>
+              </select>
+            </div>
+            <div><label>Quantity (max 50)</label><input type="number" id="gen-qty" value="5" min="1" max="50"></div>
+          </div>
+          <button onclick="generateVouchers()" id="gen-btn">Generate</button>
+          <button class="secondary" onclick="window.print()" id="print-btn" style="display:none;margin-left:8px;">Print</button>
+          <div id="gen-status" class="status"></div>
+          <div id="print-area"><div class="voucher-grid" id="voucher-grid"></div></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="tab-panel" id="tab-customers">
+        <div class="card">
+          <h2>Customers <button class="secondary" style="float:right;" onclick="loadCustomers()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Phone</th><th>Orders</th><th>Total Spent (GHS)</th><th>Last Order</th></tr></thead>
+              <tbody id="customers-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SMS -->
+      <div class="tab-panel" id="tab-sms">
+        <div class="card">
+          <h2>Promotional SMS</h2>
+          <textarea id="bulk-message" placeholder="Message..." maxlength="300"></textarea>
+          <div id="sms-customer-list" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
+          <div class="row">
+            <button class="secondary" onclick="selectAllCustomers(true)">Select All</button>
+            <button class="secondary" onclick="selectAllCustomers(false)">Select None</button>
+            <button onclick="sendBulkSmsAction()" id="bulk-send-btn">Send</button>
+          </div>
+          <div id="bulk-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Reminder: Expiring Soon</h2>
+          <div class="row">
+            <div><label>Within next (hours)</label><input type="number" id="reminder-hours" value="2" min="0.5" step="0.5"></div>
+            <div><label>Message</label><input id="reminder-message" value="Your NETGHWiFi voucher expires soon. Buy another to stay connected!"></div>
+          </div>
+          <button onclick="sendReminders()" id="reminder-btn">Send Reminders</button>
+          <div id="reminder-status" class="status"></div>
+        </div>
+      </div>
+
+      <!-- MONITORING -->
+      <div class="tab-panel" id="tab-live">
+        <div class="card">
+          <h2>Router Status <button class="secondary" style="float:right;" onclick="loadStats()">Refresh</button></h2>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="num"><span class="live-dot" id="stat-active-dot" style="display:none;"></span><span id="stat-active">-</span></div><div class="lbl">Active Now</div></div>
+            <div class="stat-box"><div class="num" id="stat-total">-</div><div class="lbl">Voucher Accounts</div></div>
+            <div class="stat-box"><div class="num" id="stat-cpu">-</div><div class="lbl">CPU Load</div></div>
+            <div class="stat-box"><div class="num" id="stat-mem">-</div><div class="lbl">Free Memory</div></div>
+            <div class="stat-box"><div class="num" id="stat-uptime">-</div><div class="lbl">Router Uptime</div></div>
+          </div>
+          <div id="stats-updated" class="status"></div>
+          <div id="chart-live-trend" style="margin:10px 0 16px;"></div>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Device</th><th>MAC Address</th><th>User</th><th>IP</th><th>Session Uptime</th><th>Data Usage</th></tr></thead><tbody id="active-body"></tbody></table>
+          </div>
+          <div id="usage-stale-hint" style="display:none;margin-top:10px;padding:10px 12px;border:1px dashed var(--amber);border-radius:8px;color:var(--amber);font-size:12.5px;">
+            No data-usage figures came through for any active session. If you just updated the panel, re-paste the latest <code>report-stats-with-devices.rsc</code> into RouterOS and make sure the backend has redeployed with the updated <code>RouterStats</code> model - both are needed for this column to populate.
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Data Usage Analytics</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Combined upload + download across all active sessions at each check-in - a trend of overall network
+            load. For a per-customer breakdown, see the Data Usage column in the Live Devices table above.
+            Needs FastTrack disabled on the router for accurate figures - see fix-hotspot-data-usage-accuracy.rsc
+            if numbers look too low.
+          </p>
+          <div id="chart-data-usage"></div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="tab-panel" id="tab-reports">
+        <div class="card">
+          <h2>Export Report (CSV)</h2>
+          <div class="row">
+            <div><label>From</label><input type="date" id="report-from"></div>
+            <div><label>To</label><input type="date" id="report-to"></div>
+          </div>
+          <button onclick="exportReport()">Download CSV</button>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOGS -->
+      <div class="tab-panel" id="tab-logs">
+        <div class="card">
+          <h2>Activity Logs <button class="secondary" style="float:right;" onclick="loadLogs()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Actor</th><th>Action</th><th>Details</th><th>Date</th></tr></thead><tbody id="logs-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="tab-panel" id="tab-users">
+        <div class="card">
+          <h2>Add Admin User</h2>
+          <div class="row">
+            <div><label>Username</label><input id="nu-username"></div>
+            <div><label>Role</label><select id="nu-role"><option value="cashier">Cashier</option><option value="accountant">Accountant</option><option value="admin">Admin</option></select></div>
+          </div>
+          <button onclick="createUser()">Create User</button>
+          <div id="nu-status" class="status"></div>
+          <div id="nu-key-box" style="display:none;margin-top:10px;">
+            <label>API key (shown once - copy it now):</label>
+            <div class="keybox" id="nu-key-value"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Users <button class="secondary" style="float:right;" onclick="loadUsers()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Username</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMINAL -->
+      <div class="tab-panel" id="tab-terminal">
+        <div class="card">
+          <h2>Remote Command</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Runs on the router within ~5 seconds. This reports <strong>success/fail only</strong> - RouterOS
+            can't reliably relay arbitrary console output back here. For anything you need to <em>see</em>
+            (active users, resource stats), use Monitoring instead. For failure detail, check
+            <code>/log print</code> on the router directly. Every command is logged to Activity Logs.
+          </p>
+          <div id="term-console" style="background:#0a0e14;color:#7ee787;font-family:monospace;font-size:12.5px;border-radius:8px;padding:12px;height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border);margin-bottom:12px;">Terminal ready. Commands run on the router and results appear here.</div>
+          <input id="term-command" placeholder="/ip hotspot user disable [find name=&quot;u12345678&quot;]" style="font-family:monospace;">
+          <button onclick="sendTerminalCommand()" id="term-send-btn">Send Command</button>
+          <div id="term-status" class="status"></div>
+        </div>
+        <div class="card">
+          <h2>Command History <button class="secondary" style="float:right;" onclick="loadTerminalHistory()">Refresh</button></h2>
+          <div style="overflow-x:auto;">
+            <table><thead><tr><th>Command</th><th>Status</th><th>By</th><th>Sent</th></tr></thead><tbody id="term-history-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="tab-panel" id="tab-settings">
+        <div class="card">
+          <h2>Settings</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Package pricing and voucher duration are NOT edited here - they live in <code>packages.js</code> on the
+            backend and in the router scripts, and must be kept in sync manually across both. This section is for
+            settings the panel itself uses.
+          </p>
+          <label>Reminder default message</label>
+          <textarea id="set-reminder-msg"></textarea>
+          <button onclick="saveSettings()">Save</button>
+          <div id="settings-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>Maintenance Mode</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            When on, the login page shows a maintenance notice instead of the normal signup/voucher flow.
+            Controlled entirely from here - no changes to the portal page are needed.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-maintenance-on">
+            <label style="margin:0;">Enable maintenance mode</label>
+          </div>
+          <label>Maintenance message shown to users</label>
+          <textarea id="set-maintenance-msg"></textarea>
+          <button onclick="saveMaintenanceSettings()">Save</button>
+          <div id="maintenance-settings-status" class="status"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ad Banner</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            Toggle the sponsored ad slideshow on the login page, and upload the images it rotates through.
+            If no images are uploaded here, the login page falls back to its own built-in defaults.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-ad-on">
+            <label style="margin:0;">Show ad banner</label>
+          </div>
+          <button onclick="saveAdSettings()">Save</button>
+          <div id="ad-settings-status" class="status"></div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+
+          <label>Upload banner image (under ~500KB, shown at roughly 3:1 width:height)</label>
+          <input type="file" id="ab-image" accept="image/*">
+          <img id="ab-image-preview" style="display:none;max-width:220px;border-radius:8px;margin:8px 0;">
+          <div class="row">
+            <div><label>Link (optional - where a tap goes)</label><input id="ab-link" placeholder="https://wa.me/233545837116"></div>
+            <div><label>Alt text (optional)</label><input id="ab-alt" placeholder="e.g. Buy data bundles"></div>
+          </div>
+          <button onclick="uploadAdBannerImage()" id="ab-upload-btn">Upload Image</button>
+          <div id="ab-upload-status" class="status"></div>
+
+          <div class="voucher-grid" id="ad-banner-grid" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Announcement Banner</h2>
+          <p style="color:var(--muted);font-size:13px;">
+            The scrolling marquee strip on the login page. One message per line.
+          </p>
+          <div class="checkline">
+            <input type="checkbox" id="set-announce-on">
+            <label style="margin:0;">Show announcement banner</label>
+          </div>
+          <label>Messages (one per line)</label>
+          <textarea id="set-announce-msgs" rows="4"></textarea>
+          <button onclick="saveAnnouncementSettings()">Save</button>
+          <div id="announce-settings-status" class="status"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "https://wifi-backend-29n9.onrender.com";
+  let adminKey = "";
+  let myRole = "cashier";
+
+  const ACCENTS = {
+    blue:   { c: '#3badf0', d: '#1b7fb0' },
+    teal:   { c: '#14b8a6', d: '#0d9488' },
+    violet: { c: '#8b5cf6', d: '#6d28d9' },
+    rose:   { c: '#f43f5e', d: '#be123c' },
+    green:  { c: '#22c55e', d: '#15803d' },
+    amber:  { c: '#f0a93b', d: '#b9791f' }
+  };
+
+  function applyTheme(theme) {
+    // theme here is the *resolved* light/dark value actually painted on screen
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = theme === 'light' ? '\u{1F319}' : '\u2600\uFE0F';
+  }
+  function resolveMode(mode) {
+    if (mode === 'auto') {
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    return mode;
+  }
+  function setThemeMode(mode) {
+    try { localStorage.setItem('ngw-admin-theme-mode', mode); } catch (e) {}
+    applyTheme(resolveMode(mode));
+    document.querySelectorAll('#cust-theme-tabs .cust-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    setThemeMode(cur === 'light' ? 'dark' : 'light');
+  }
+  function setAccent(name) {
+    const a = ACCENTS[name] || ACCENTS.blue;
+    document.documentElement.style.setProperty('--blue', a.c);
+    document.documentElement.style.setProperty('--blue-dark', a.d);
+    try { localStorage.setItem('ngw-admin-accent', name); } catch (e) {}
+    document.querySelectorAll('#cust-accent-swatches .cust-swatch').forEach(s => s.classList.toggle('active', s.dataset.accent === name));
+  }
+  function setRadius(px) {
+    document.documentElement.style.setProperty('--radius', px);
+    try { localStorage.setItem('ngw-admin-radius', px); } catch (e) {}
+    document.querySelectorAll('#cust-radius-tabs .cust-tab').forEach(t => t.classList.toggle('active', t.dataset.radius === px));
+  }
+  function openCustomizer() {
+    document.getElementById('cust-overlay').classList.add('open');
+    document.getElementById('cust-panel').classList.add('open');
+  }
+  function closeCustomizer() {
+    document.getElementById('cust-overlay').classList.remove('open');
+    document.getElementById('cust-panel').classList.remove('open');
+  }
+  function resetCustomizer() {
+    setThemeMode('dark');
+    setAccent('blue');
+    setRadius('14px');
+  }
+  (function () {
+    let mode, accent, radius;
+    try {
+      mode = localStorage.getItem('ngw-admin-theme-mode') || localStorage.getItem('ngw-admin-theme') || 'dark';
+      accent = localStorage.getItem('ngw-admin-accent') || 'blue';
+      radius = localStorage.getItem('ngw-admin-radius') || '14px';
+    } catch (e) { mode = 'dark'; accent = 'blue'; radius = '14px'; }
+    setThemeMode(mode);
+    setAccent(accent);
+    setRadius(radius);
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        try { if ((localStorage.getItem('ngw-admin-theme-mode') || 'dark') === 'auto') applyTheme(resolveMode('auto')); } catch (e) {}
+      });
+    }
+  })();
+
+  // ---- mobile sidebar ----
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+  function toggleRail() {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('ngw-admin-rail', collapsed ? '1' : '0'); } catch (e) {}
+  }
+  (function () {
+    let r; try { r = localStorage.getItem('ngw-admin-rail'); } catch (e) {}
+    if (r === '1') document.body.classList.add('sidebar-collapsed');
+  })();
+
+  function authHeaders(extra) {
+    return Object.assign({ 'x-admin-key': adminKey }, extra || {});
+  }
+
+  function login() {
+    const key = document.getElementById('admin-key-input').value.trim();
+    if (!key) return;
+    adminKey = key;
+    fetch(API_BASE + '/api/admin/dashboard', { headers: authHeaders() })
+      .then(r => { if (r.status === 401) throw new Error('Wrong admin key'); if (!r.ok) throw new Error('Server error'); return r.json(); })
+      .then(() => {
+        document.getElementById('login-gate').style.display = 'none';
+        document.getElementById('shell').style.display = 'block';
+        detectRole();
+        showTab('dashboard');
+        fetch(API_BASE + '/api/admin/whoami', { headers: authHeaders() }).then(r => r.json()).then(w => {
+          if (w.username) document.getElementById('welcome-heading').textContent = 'Welcome back, ' + w.username;
+        }).catch(() => {});
+      })
+      .catch(err => { document.getElementById('login-status').textContent = err.message; });
+  }
+
+  function logout() {
+    if (!confirm('Sign out of the admin panel?')) return;
+    adminKey = '';
+    myRole = 'cashier';
+    document.getElementById('admin-key-input').value = '';
+    document.getElementById('login-status').textContent = '';
+    document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = '');
+    document.getElementById('shell').style.display = 'none';
+    document.getElementById('login-gate').style.display = 'flex';
+  }
+
+  function detectRole() {
+    // Try an admin-only endpoint; if it 403s, we know we're not full admin.
+    fetch(API_BASE + '/api/admin/users', { headers: authHeaders() }).then(r => {
+      if (r.status === 403) {
+        myRole = 'cashier';
+        document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = 'none');
+      } else {
+        myRole = 'admin';
+      }
+    }).catch(() => {});
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelector('.nav-item[data-tab="' + name + '"]').classList.add('active');
+    document.getElementById('page-title').textContent = document.querySelector('.nav-item[data-tab="' + name + '"]').textContent.trim();
+    closeSidebar();
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'products') loadProducts();
+    if (name === 'vouchers') loadProducts();
+    if (name === 'billing') loadBilling();
+    if (name === 'payments') loadPayments('online');
+    if (name === 'customers') loadCustomers();
+    if (name === 'sms') loadSmsCustomers();
+    if (name === 'live') loadStats();
+    if (name === 'logs') loadLogs();
+    if (name === 'users') loadUsers();
+    if (name === 'terminal') loadTerminalHistory();
+    if (name === 'settings') { loadSettings(); loadAdBannerSlides(); }
+  }
+
+  function badge(s) { return '<span class="badge ' + s + '">' + s + '</span>'; }
+
+  // ---- Dashboard ----
+  let revenueChart = null, typesChart = null, sparkRevChart = null, sparkOrdChart = null;
+  function renderSparkline(elId, data, color, existing) {
+    const opts = {
+      chart: { type: 'line', height: 32, width: 70, sparkline: { enabled: true } },
+      series: [{ data }],
+      colors: [color],
+      stroke: { width: 1.5, curve: 'smooth' },
+      tooltip: { enabled: false }
+    };
+    if (existing) { existing.updateOptions(opts); return existing; }
+    const chart = new ApexCharts(document.getElementById(elId), opts);
+    chart.render();
+    return chart;
+  }
+  function renderDashboardCharts(d) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const fg = isLight ? '#12232f' : '#e6edf3';
+
+    const revenueOptions = {
+      chart: { type: 'area', height: 220, toolbar: { show: false }, foreColor: fg },
+      series: [{ name: 'Revenue (GHS)', data: (d.last7Days || []).map(x => x.revenueGHS) }],
+      xaxis: { categories: (d.last7Days || []).map(x => x.date.slice(5)) },
+      colors: ['#29a8e0'],
+      stroke: { curve: 'smooth', width: 2 },
+      fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+      dataLabels: { enabled: false },
+      grid: { borderColor: isLight ? '#dbe6ee' : '#232a33' }
+    };
+    if (revenueChart) revenueChart.updateOptions(revenueOptions);
+    else { revenueChart = new ApexCharts(document.getElementById('chart-revenue'), revenueOptions); revenueChart.render(); }
+
+    const bt = d.billingTypeBreakdown || { online: 0, cash: 0, manual: 0 };
+    const typesOptions = {
+      chart: { type: 'donut', height: 220, foreColor: fg },
+      series: [bt.online || 0, bt.cash || 0, bt.manual || 0],
+      labels: ['Online', 'Cash/Voucher', 'Manual'],
+      colors: ['#29a8e0', '#2ecc71', '#e0a53b'],
+      legend: { position: 'bottom' }
+    };
+    if (typesChart) typesChart.updateOptions(typesOptions);
+    else { typesChart = new ApexCharts(document.getElementById('chart-types'), typesOptions); typesChart.render(); }
+
+    const revSeries = (d.last7Days || []).map(x => x.revenueGHS);
+    const ordSeries = (d.last7Days || []).map(x => x.orders);
+    sparkRevChart = renderSparkline('spark-today-rev', revSeries, '#29a8e0', sparkRevChart);
+    sparkOrdChart = renderSparkline('spark-today-orders', ordSeries, '#2ecc71', sparkOrdChart);
+  }
+
+  function loadDashboard() {
+    fetch(API_BASE + '/api/admin/dashboard', { headers: authHeaders() }).then(r => r.json()).then(d => {
+      document.getElementById('d-today-rev').textContent = (d.todayRevenueGHS || 0).toFixed(2);
+      document.getElementById('d-today-orders').textContent = d.todayOrders || 0;
+      document.getElementById('d-week-rev').textContent = (d.weekRevenueGHS || 0).toFixed(2);
+      document.getElementById('d-week-orders').textContent = d.weekOrders || 0;
+      document.getElementById('d-pending').textContent = d.pendingBills || 0;
+      renderDashboardCharts(d);
+      document.getElementById('d-customers').textContent = d.totalCustomers || 0;
+      document.getElementById('d-active').textContent = d.activeNow || 0;
+      document.getElementById('d-active-dot').style.display = (d.activeNow > 0) ? 'inline-block' : 'none';
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/billing?limit=6', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('d-recent-billing').innerHTML = rows.slice(0, 6).map(t => `
+        <tr><td>${t.reference}</td><td>${t.billingType}</td><td>${t.phone || ''}</td>
+        <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${t.canceled ? badge('failed') : badge(t.status)}</td></tr>`).join('');
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/router-stats', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('d-live-active').textContent = s.activeCount ?? '-';
+      document.getElementById('d-live-cpu').textContent = (s.cpuLoad ?? '-') + '%';
+      document.getElementById('d-live-uptime').textContent = s.uptime || '-';
+    }).catch(() => {});
+
+    fetch(API_BASE + '/api/admin/activity-logs', { headers: authHeaders() }).then(r => {
+      if (r.status === 403) { document.getElementById('d-recent-activity').innerHTML = '<tr><td colspan="3" style="color:var(--muted);">Activity logs are admin-only.</td></tr>'; return null; }
+      return r.json();
+    }).then(rows => {
+      if (!rows) return;
+      document.getElementById('d-recent-activity').innerHTML = rows.slice(0, 6).map(l => `
+        <tr><td>${l.actor}</td><td>${l.action}</td><td>${new Date(l.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  // ---- Billing ----
+  let billingCache = [];
+  function loadBilling() {
+    const type = document.getElementById('bill-filter-type').value;
+    const status = document.getElementById('bill-filter-status').value;
+    const qs = new URLSearchParams(); if (type) qs.set('billingType', type); if (status) qs.set('status', status);
+    fetch(API_BASE + '/api/admin/billing?' + qs.toString(), { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      billingCache = rows;
+      document.getElementById('billing-body').innerHTML = rows.map(t => `
+        <tr>
+          <td>${t.reference}</td><td>${t.billingType}</td><td>${t.packageId || ''}</td><td>${t.phone || ''}</td>
+          <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${t.canceled ? badge('failed') : badge(t.status)}</td>
+          <td>
+            <button class="secondary" onclick="viewVoucherDetails('${t.reference}')">View</button>
+            ${t.status !== 'success' && !t.canceled ? `<button class="secondary" onclick="markPaid('${t.reference}')">Mark Paid</button>` : ''}
+            ${!t.canceled ? `<button class="danger" onclick="cancelBill('${t.reference}')">Cancel</button>` : ''}
+            ${myRole === 'admin' ? `<button class="danger" onclick="deleteBill('${t.reference}')">Delete</button>` : ''}
+          </td>
+        </tr>`).join('');
+    }).catch(() => {});
+  }
+  function viewVoucherDetails(reference) {
+    const t = billingCache.find(x => x.reference === reference);
+    if (!t) return;
+    let fulfillState = 'Not yet fulfilled';
+    if (t.synced) fulfillState = 'Created on router';
+    else if (t.dispatched) fulfillState = 'Handed to router - waiting for confirmation';
+    const rows = [
+      ['Package', t.packageId || '-'],
+      ['Type', t.billingType],
+      ['Status', t.canceled ? 'Canceled' : t.status],
+      ['Amount', 'GHS ' + ((t.amountKobo || 0) / 100).toFixed(2)],
+      ['Phone', t.phone || '-'],
+      ['Router account', fulfillState],
+      ['SMS sent', t.smsSent ? 'Yes' : 'No'],
+      ['Expired', t.expired ? 'Yes' : 'No'],
+      ['Created', new Date(t.createdAt).toLocaleString()],
+    ];
+    if (t.note) rows.push(['Note', t.note]);
+    if (t.createdBy) rows.push(['Created by', t.createdBy]);
+    document.getElementById('voucher-modal-title').textContent = 'Voucher Details';
+    document.getElementById('voucher-modal-body').innerHTML =
+      (t.hotspotUsername ? `<div class="voucher-code-box">${t.hotspotUsername}</div>` : '<p style="color:var(--muted);font-size:13px;">No voucher code assigned yet - the router hasn\u2019t created this account.</p>') +
+      rows.map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('') +
+      (!t.synced && !t.canceled ? `<button class="secondary" style="width:100%;margin-top:12px;" onclick="retryFulfillment('${t.reference}')">Retry Fulfillment Now</button>` : '');
+    document.getElementById('voucher-modal').classList.add('open');
+  }
+  function retryFulfillment(reference) {
+    if (!confirm('Mark this order for retry? The router will pick it up on its next poll.')) return;
+    fetch(API_BASE + '/api/admin/billing/' + reference + '/retry-fulfillment', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { alert(data.message || 'Done.'); closeVoucherModal(); loadBilling(); });
+  }
+  function closeVoucherModal() {
+    document.getElementById('voucher-modal').classList.remove('open');
+  }
+  function createManualBill() {
+    const phone = document.getElementById('mb-phone').value.trim();
+    const packageId = document.getElementById('mb-package').value.trim();
+    const amountGHS = parseFloat(document.getElementById('mb-amount').value) || 0;
+    const note = document.getElementById('mb-note').value.trim();
+    const statusEl = document.getElementById('mb-status');
+    if (!phone) { statusEl.className = 'status error'; statusEl.textContent = 'Phone required.'; return; }
+    fetch(API_BASE + '/api/admin/billing/manual', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ phone, packageId, amountKobo: Math.round(amountGHS * 100), note })
+    }).then(r => r.json()).then(d => {
+      statusEl.className = 'status ok'; statusEl.textContent = 'Bill created: ' + d.reference;
+      loadBilling();
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+  function markPaid(ref) {
+    fetch(API_BASE + '/api/admin/billing/' + ref + '/mark-paid', { method: 'POST', headers: authHeaders() }).then(loadBilling);
+  }
+  function cancelBill(ref) {
+    if (!confirm('Cancel this bill?')) return;
+    fetch(API_BASE + '/api/admin/billing/' + ref + '/cancel', { method: 'POST', headers: authHeaders() }).then(loadBilling);
+  }
+  function deleteBill(ref) {
+    if (!confirm('Permanently delete transaction ' + ref + '? This cannot be undone - the record, not just its status, is removed. Use Cancel instead if you just want to mark it invalid but keep it for records.')) return;
+    fetch(API_BASE + '/api/admin/billing/' + ref, { method: 'DELETE', headers: authHeaders() })
+      .then(r => r.json()).then(d => {
+        if (d.message && !d.ok) { alert(d.message); return; }
+        loadBilling();
+      }).catch(() => alert('Could not delete.'));
+  }
+
+  // ---- Payments ----
+  function loadPayments(type) {
+    document.getElementById('pay-tab-online').classList.toggle('active', type === 'online');
+    document.getElementById('pay-tab-voucher').classList.toggle('active', type === 'voucher');
+    fetch(API_BASE + '/api/admin/payments?type=' + type, { headers: authHeaders() }).then(r => r.json()).then(d => {
+      document.getElementById('pay-total').textContent = 'Total: GHS ' + (d.totalGHS || 0).toFixed(2) + ' (' + d.rows.length + ' payments)';
+      document.getElementById('payments-body').innerHTML = d.rows.map(t => `
+        <tr><td>${t.reference}</td><td>${t.packageId||''}</td><td>${t.phone||''}</td>
+        <td>GHS ${((t.amountKobo||0)/100).toFixed(2)}</td><td>${new Date(t.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  // ---- Vouchers ----
+  function generateVouchers() {
+    const packageId = document.getElementById('gen-package').value;
+    const quantity = document.getElementById('gen-qty').value;
+    const genBtn = document.getElementById('gen-btn'), statusEl = document.getElementById('gen-status');
+    const grid = document.getElementById('voucher-grid'), printBtn = document.getElementById('print-btn');
+    genBtn.disabled = true; printBtn.style.display = 'none'; grid.innerHTML = '';
+    statusEl.className = 'status'; statusEl.textContent = 'Creating vouchers\u2026';
+    fetch(API_BASE + '/api/admin/vouchers/generate', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ packageId, quantity })
+    }).then(r => r.json()).then(data => {
+      if (!data.references) { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; genBtn.disabled = false; return; }
+      statusEl.textContent = 'Waiting for router to fulfill ' + data.references.length + ' voucher(s)\u2026';
+      pollVouchers(data.references, packageId, data.priceGHS || 0, genBtn, statusEl, printBtn);
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; genBtn.disabled = false; });
+  }
+  function pollVouchers(references, packageId, priceGHS, genBtn, statusEl, printBtn) {
+    const results = {}; let attempts = 0; const maxAttempts = 40;
+    const timer = setInterval(() => {
+      attempts++;
+      Promise.all(references.map(ref => fetch(API_BASE + '/api/orders/' + ref + '/status').then(r => r.json()).then(d => ({ d })))).then(list => {
+        list.forEach(({ d }) => { if (d.status === 'success' && d.hotspotUsername) results[d.hotspotUsername] = true; });
+        renderVouchers(Object.keys(results), packageId, priceGHS);
+        if (Object.keys(results).length === references.length) {
+          clearInterval(timer); statusEl.className = 'status ok'; statusEl.textContent = 'All vouchers ready.';
+          genBtn.disabled = false; printBtn.style.display = 'inline-block'; loadBilling();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(timer); statusEl.className = 'status error'; statusEl.textContent = 'Some are taking longer than usual - check Billing.';
+          genBtn.disabled = false; if (Object.keys(results).length > 0) printBtn.style.display = 'inline-block';
+        }
+      });
+    }, 3000);
+  }
+  function renderVouchers(codes, packageId, priceGHS) {
+    document.getElementById('voucher-grid').innerHTML = codes.map((code, i) => `
+      <div class="voucher-card"><div class="pkg">${packageId}</div><div class="code">${code}</div>
+      <svg class="voucher-barcode" id="vb-${i}"></svg>
+      <div class="pkg" style="font-weight:700;color:var(--green);">GHS ${(priceGHS || 0).toFixed(2)}</div>
+      <div class="pkg">Use as Username &amp; Password</div><div class="brand">NETGHWiFi</div></div>`).join('');
+    // Scannable barcode so a phone camera / scanner can capture the code
+    // directly instead of someone typing it in manually.
+    codes.forEach((code, i) => {
+      try {
+        JsBarcode('#vb-' + i, code, { format: 'CODE128', height: 34, width: 1.6, displayValue: false, margin: 0, background: 'transparent', lineColor: '#000' });
+      } catch (e) { /* skip if a code has odd characters */ }
+    });
+  }
+
+  // ---- Customers ----
+  let customersCache = [];
+  function loadCustomers() {
+    fetch(API_BASE + '/api/admin/customers', { headers: authHeaders() }).then(r => r.json()).then(list => {
+      customersCache = list;
+      document.getElementById('customers-body').innerHTML = list.map(c => `
+        <tr><td>${c.phone}</td><td>${c.orderCount}</td><td>${c.totalSpentGHS.toFixed(2)}</td><td>${new Date(c.lastOrder).toLocaleDateString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+  function loadSmsCustomers() {
+    fetch(API_BASE + '/api/admin/customers', { headers: authHeaders() }).then(r => r.json()).then(list => {
+      customersCache = list;
+      document.getElementById('sms-customer-list').innerHTML = list.map(c => `
+        <label class="checkline"><input type="checkbox" class="customer-check" value="${c.phone}" checked>${c.phone} (${c.orderCount} orders)</label>`).join('') ||
+        '<p style="color:var(--muted);font-size:13px;">No customers yet.</p>';
+    }).catch(() => {});
+  }
+  function selectAllCustomers(state) { document.querySelectorAll('.customer-check').forEach(cb => cb.checked = state); }
+
+  function sendBulkSmsAction() {
+    const message = document.getElementById('bulk-message').value.trim();
+    const phones = Array.from(document.querySelectorAll('.customer-check:checked')).map(cb => cb.value);
+    const statusEl = document.getElementById('bulk-status'), btn = document.getElementById('bulk-send-btn');
+    if (!message) { statusEl.className = 'status error'; statusEl.textContent = 'Write a message first.'; return; }
+    if (phones.length === 0) { statusEl.className = 'status error'; statusEl.textContent = 'Select at least one customer.'; return; }
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Sending to ' + phones.length + '\u2026';
+    fetch(API_BASE + '/api/admin/sms/bulk', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message, phones })
+    }).then(r => r.json()).then(data => {
+      btn.disabled = false;
+      if (data.sent) { statusEl.className = 'status ok'; statusEl.textContent = 'Sent to ' + data.recipientCount + '.'; }
+      else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Send failed.'; }
+    }).catch(() => { btn.disabled = false; statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function sendReminders() {
+    const hours = document.getElementById('reminder-hours').value;
+    const message = document.getElementById('reminder-message').value.trim();
+    const statusEl = document.getElementById('reminder-status'), btn = document.getElementById('reminder-btn');
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Finding expiring vouchers\u2026';
+    fetch(API_BASE + '/api/admin/sms/expiring-soon?hours=' + hours, { headers: authHeaders() }).then(r => r.json()).then(list => {
+      const phones = [...new Set(list.map(x => x.phone))];
+      if (phones.length === 0) { btn.disabled = false; statusEl.className = 'status'; statusEl.textContent = 'No vouchers expiring soon.'; return; }
+      return fetch(API_BASE + '/api/admin/sms/bulk', {
+        method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message, phones })
+      }).then(r => r.json()).then(data => {
+        btn.disabled = false;
+        statusEl.className = data.sent ? 'status ok' : 'status error';
+        statusEl.textContent = data.sent ? ('Reminder sent to ' + phones.length + '.') : (data.message || 'Failed.');
+      });
+    }).catch(() => { btn.disabled = false; statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function formatBytes(bytes) {
+    bytes = bytes || 0;
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  // ---- Live status ----
+  let liveChart = null;
+  let liveRefreshTimer = null;
+  function loadStats() {
+    fetch(API_BASE + '/api/admin/router-stats', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('stat-active').textContent = s.activeCount ?? '-';
+      document.getElementById('stat-active-dot').style.display = (s.activeCount > 0) ? 'inline-block' : 'none';
+      document.getElementById('stat-total').textContent = s.totalVoucherAccounts ?? '-';
+      document.getElementById('stat-cpu').textContent = (s.cpuLoad ?? '-') + '%';
+      document.getElementById('stat-mem').textContent = s.freeMemory ? Math.round(s.freeMemory/1024/1024) + ' MB' : '-';
+      document.getElementById('stat-uptime').textContent = s.uptime || '-';
+      document.getElementById('stats-updated').textContent = s.reportedAt ? 'Live \u2014 last updated: ' + new Date(s.reportedAt).toLocaleTimeString() : 'No data yet - install the router stats script.';
+      const active = s.activeUsers || [];
+      document.getElementById('active-body').innerHTML = active.map(u => {
+        const mac = u.macAddress ? `<code style="font-size:12px;">${u.macAddress}</code>` : '<span style="color:var(--muted);">-</span>';
+        const hasUsage = u.bytesIn != null || u.bytesOut != null;
+        const used = hasUsage ? formatBytes((u.bytesIn || 0) + (u.bytesOut || 0)) : '<span style="color:var(--muted);">-</span>';
+        const macSuffix = u.macAddress ? u.macAddress.split(':').slice(-2).join(':') : '';
+        const deviceLabel = u.device || `<span style="color:var(--muted);">Unknown${macSuffix ? ' (\u2026' + macSuffix + ')' : ''}</span>`;
+        return `<tr><td>${deviceLabel}</td><td>${mac}</td><td>${u.user}</td><td>${u.address}</td><td>${u.uptime}</td><td>${used}</td></tr>`;
+      }).join('') ||
+        '<tr><td colspan="6" style="color:var(--muted);">No active sessions.</td></tr>';
+      const usageHint = document.getElementById('usage-stale-hint');
+      if (usageHint) usageHint.style.display = (active.length > 0 && active.every(u => u.bytesIn == null && u.bytesOut == null)) ? 'block' : 'none';
+      renderLiveChart(s.history || []);
+      renderDataUsageChart(s.history || []);
+    }).catch(() => {});
+
+    // Auto-refresh every 10s while this tab is open - stops when you leave it.
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = setInterval(() => {
+      if (document.getElementById('tab-live').classList.contains('active')) loadStats();
+      else clearInterval(liveRefreshTimer);
+    }, 10000);
+  }
+
+  function renderLiveChart(history) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const fg = isLight ? '#12232f' : '#e6edf3';
+    const options = {
+      chart: { type: 'line', height: 200, toolbar: { show: false }, foreColor: fg, animations: { easing: 'linear', dynamicAnimation: { speed: 500 } } },
+      series: [{ name: 'Active Users', data: history.map(h => h.activeCount) }],
+      xaxis: { categories: history.map(h => new Date(h.timestamp).toLocaleTimeString().slice(0,5)), labels: { rotate: 0 } },
+      colors: ['#3badf0'],
+      stroke: { curve: 'smooth', width: 2 },
+      dataLabels: { enabled: false },
+      grid: { borderColor: isLight ? '#dbe6ee' : '#262e3a' },
+      markers: { size: 3 }
+    };
+    if (liveChart) liveChart.updateOptions(options);
+    else { liveChart = new ApexCharts(document.getElementById('chart-live-trend'), options); liveChart.render(); }
+  }
+
+  let dataUsageChart = null;
+  function renderDataUsageChart(history) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const fg = isLight ? '#12232f' : '#e6edf3';
+    const toMB = b => +((b || 0) / (1024 * 1024)).toFixed(1);
+    const options = {
+      chart: { type: 'area', height: 200, toolbar: { show: false }, foreColor: fg, animations: { easing: 'linear', dynamicAnimation: { speed: 500 } } },
+      series: [
+        { name: 'Upload (MB)', data: history.map(h => toMB(h.totalBytesIn)) },
+        { name: 'Download (MB)', data: history.map(h => toMB(h.totalBytesOut)) }
+      ],
+      xaxis: { categories: history.map(h => new Date(h.timestamp).toLocaleTimeString().slice(0, 5)), labels: { rotate: 0 } },
+      colors: ['#29a8e0', '#2ecc71'],
+      stroke: { curve: 'smooth', width: 2 },
+      fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+      dataLabels: { enabled: false },
+      grid: { borderColor: isLight ? '#dbe6ee' : '#262e3a' },
+      legend: { position: 'top' }
+    };
+    if (dataUsageChart) dataUsageChart.updateOptions(options);
+    else { dataUsageChart = new ApexCharts(document.getElementById('chart-data-usage'), options); dataUsageChart.render(); }
+  }
+
+  // ---- Reports ----
+  function exportReport() {
+    const from = document.getElementById('report-from').value;
+    const to = document.getElementById('report-to').value;
+    const qs = new URLSearchParams({ adminKey }); if (from) qs.set('from', from); if (to) qs.set('to', to);
+    window.location = API_BASE + '/api/admin/reports/export?' + qs.toString();
+  }
+
+  // ---- Activity logs ----
+  function loadLogs() {
+    fetch(API_BASE + '/api/admin/activity-logs', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('logs-body').innerHTML = rows.map(l => `
+        <tr><td>${l.actor}</td><td>${l.action}</td><td>${JSON.stringify(l.details||{})}</td><td>${new Date(l.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  // ---- Users ----
+  function loadUsers() {
+    fetch(API_BASE + '/api/admin/users', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('users-body').innerHTML = rows.map(u => `
+        <tr><td>${u.username}</td><td>${u.role}</td><td>${u.active ? 'Yes' : 'No'}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td>
+          <button class="secondary" onclick="viewUserApiKey('${u.username}')">View Key</button>
+          ${u.active
+            ? `<button class="danger" onclick="deactivateUser('${u.username}')">Deactivate</button>`
+            : `<button class="secondary" onclick="extendUser('${u.username}')">Extend</button>`}
+          <button class="danger" onclick="deleteUser('${u.username}')" style="margin-left:6px;">Delete</button>
+        </td></tr>`).join('');
+    }).catch(() => {});
+  }
+  function createUser() {
+    const username = document.getElementById('nu-username').value.trim();
+    const role = document.getElementById('nu-role').value;
+    const statusEl = document.getElementById('nu-status');
+    if (!username) { statusEl.className = 'status error'; statusEl.textContent = 'Username required.'; return; }
+    fetch(API_BASE + '/api/admin/users', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ username, role })
+    }).then(r => r.json()).then(data => {
+      if (data.apiKey) {
+        statusEl.className = 'status ok'; statusEl.textContent = 'User created.';
+        document.getElementById('nu-key-box').style.display = 'block';
+        document.getElementById('nu-key-value').textContent = data.apiKey;
+        loadUsers();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+  function deactivateUser(username) {
+    if (!confirm('Deactivate ' + username + '?')) return;
+    fetch(API_BASE + '/api/admin/users/' + username + '/deactivate', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function extendUser(username) {
+    if (!confirm('Restore access for ' + username + '?')) return;
+    fetch(API_BASE + '/api/admin/users/' + username + '/extend', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function deleteUser(username) {
+    if (!confirm('Permanently delete ' + username + '? This cannot be undone - their API key stops working immediately.')) return;
+    fetch(API_BASE + '/api/admin/users/' + username, { method: 'DELETE', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadUsers(); });
+  }
+  function viewUserApiKey(username) {
+    fetch(API_BASE + '/api/admin/users/' + username + '/key', { headers: authHeaders() })
+      .then(r => r.json()).then(data => {
+        if (!data.apiKey) { alert(data.message || 'Could not fetch key.'); return; }
+        document.getElementById('voucher-modal-title').textContent = 'API Key \u2014 ' + data.username;
+        document.getElementById('voucher-modal-body').innerHTML =
+          '<p style="color:var(--muted);font-size:13px;">This is what ' + data.username + ' enters to log into this panel. Keep it private.</p>' +
+          '<div class="voucher-code-box" id="uk-key-value" style="font-size:14px;">' + data.apiKey + '</div>' +
+          '<button class="secondary" style="width:100%;" onclick="copyUserApiKey()">Copy</button>';
+        document.getElementById('voucher-modal').classList.add('open');
+      }).catch(() => alert('Network error.'));
+  }
+  function copyUserApiKey() {
+    const text = document.getElementById('uk-key-value').textContent;
+    navigator.clipboard.writeText(text).then(() => alert('Copied.')).catch(() => {});
+  }
+
+  // ---- Settings ----
+  // ---- Products ----
+  let productsCache = [];
+  let editingProductId = null;
+  document.addEventListener('DOMContentLoaded', function () {
+    const imgInput = document.getElementById('pd-image');
+    if (imgInput) {
+      imgInput.addEventListener('change', function () {
+        const file = imgInput.files[0];
+        if (!file) return;
+        if (file.size > 500000) { document.getElementById('pd-status').className = 'status error'; document.getElementById('pd-status').textContent = 'Image too large - keep it under ~500KB.'; imgInput.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = function () {
+          document.getElementById('pd-image-preview').src = reader.result;
+          document.getElementById('pd-image-preview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    const abImgInput = document.getElementById('ab-image');
+    if (abImgInput) {
+      abImgInput.addEventListener('change', function () {
+        const file = abImgInput.files[0];
+        if (!file) return;
+        if (file.size > 500000) { document.getElementById('ab-upload-status').className = 'status error'; document.getElementById('ab-upload-status').textContent = 'Image too large - keep it under ~500KB.'; abImgInput.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = function () {
+          document.getElementById('ab-image-preview').src = reader.result;
+          document.getElementById('ab-image-preview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  });
+
+  function formatDuration(ms) {
+    if (!ms || ms <= 0) return ms < 0 ? 'invalid (negative)' : '-';
+    const minutes = ms / (60 * 1000);
+    if (minutes < 60) return (minutes % 1 === 0 ? minutes : minutes.toFixed(0)) + 'm';
+    const hours = ms / (60 * 60 * 1000);
+    if (hours >= 24 && hours % 24 === 0) return (hours / 24) + 'd';
+    if (hours >= 24) return (hours / 24).toFixed(1) + 'd';
+    return (hours % 1 === 0 ? hours : hours.toFixed(1)) + 'h';
+  }
+  function loadProducts() {
+    return fetch(API_BASE + '/api/admin/products', { headers: authHeaders() }).then(r => r.json()).then(products => {
+      productsCache = products;
+      document.getElementById('products-grid').innerHTML = products.map(p => `
+        <div class="product-card${p.active ? '' : ' inactive'}">
+          ${p.imageBase64 ? `<img src="${p.imageBase64}">` : ''}
+          <div class="p-name">${p.name}</div>
+          <div class="p-price">GHS ${p.price.toFixed(2)}</div>
+          <div class="p-meta">${p.productId} &middot; ${p.type} &middot; ${formatDuration(p.durationMs)}${p.active ? '' : ' &middot; INACTIVE'}</div>
+          <button class="secondary" style="width:100%;" onclick="toggleProductActive('${p._id}', ${!p.active})">${p.active ? 'Deactivate' : 'Reactivate'}</button>
+          <button class="secondary" style="width:100%;margin-top:6px;" onclick="editProduct('${p._id}')">Edit</button>
+          <button class="secondary" style="width:100%;margin-top:6px;" onclick="recreateProfile('${p._id}')">Recreate Router Profile</button>
+          <button class="danger" style="width:100%;margin-top:6px;" onclick="deleteProduct('${p._id}','${(p.name||'').replace(/'/g,"\\'")}')">Delete</button>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No products yet - use Seed Defaults or Add Product above.</p>';
+      populateVoucherPackageDropdown(products);
+      return products;
+    }).catch(() => {});
+  }
+
+  function populateVoucherPackageDropdown(products) {
+    const sel = document.getElementById('gen-package');
+    if (!sel) return;
+    const active = products.filter(p => p.active);
+    if (active.length === 0) return; // keep whatever static options exist rather than leave it empty
+    sel.innerHTML = active.map(p => `<option value="${p.productId}">${p.name} (GHS ${p.price.toFixed(2)})</option>`).join('');
+  }
+
+  function createProduct() {
+    const productId = document.getElementById('pd-productid').value.trim();
+    const name = document.getElementById('pd-name').value.trim();
+    const price = parseFloat(document.getElementById('pd-price').value) || 0;
+    const durationValue = parseFloat(document.getElementById('pd-duration').value);
+    const durationUnit = document.getElementById('pd-duration-unit').value; // 'minutes' | 'hours' | 'days'
+    const type = document.getElementById('pd-type').value;
+    const dataAmount = document.getElementById('pd-data').value.trim();
+    const speed = document.getElementById('pd-speed').value.trim();
+    const rateLimit = document.getElementById('pd-ratelimit').value.trim();
+    const badge = document.getElementById('pd-badge').value.trim();
+    const features = document.getElementById('pd-features').value.split(',').map(s => s.trim()).filter(Boolean);
+    const imgPreview = document.getElementById('pd-image-preview');
+    const imageBase64 = imgPreview.style.display !== 'none' ? imgPreview.src : undefined;
+    const statusEl = document.getElementById('pd-status');
+
+    if (!productId || !name || !durationValue) { statusEl.className = 'status error'; statusEl.textContent = 'Product ID, name, and duration are required.'; return; }
+
+    const msPerUnit = durationUnit === 'days' ? 24 * 60 * 60 * 1000 : durationUnit === 'minutes' ? 60 * 1000 : 60 * 60 * 1000;
+    const durationMs = durationValue * msPerUnit;
+
+    if (editingProductId) {
+      // Editing: PATCH the existing product. productId (the router profile
+      // name) is intentionally left out of the payload - it's locked while
+      // editing so it can't drift out of sync with the actual router
+      // profile name behind an existing, possibly-already-sold, product.
+      statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+      fetch(API_BASE + '/api/admin/products/' + editingProductId, {
+        method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name, price, durationMs, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
+      }).then(r => r.json()).then(data => {
+        if (data._id) {
+          statusEl.className = 'status ok'; statusEl.textContent = 'Product updated.';
+          cancelEditProduct();
+          loadProducts();
+        } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+      }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+      return;
+    }
+
+    statusEl.className = 'status'; statusEl.textContent = 'Creating\u2026';
+    fetch(API_BASE + '/api/admin/products', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ productId, name, price, durationMs, type, dataAmount, speed, rateLimit, badge, features, imageBase64, isTrial: type === 'trial' })
+    }).then(r => r.json()).then(data => {
+      if (data.product) {
+        statusEl.className = 'status ok'; statusEl.textContent = data.message;
+        ['pd-productid','pd-name','pd-price','pd-duration','pd-badge','pd-features'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('pd-image').value = ''; document.getElementById('pd-image-preview').style.display = 'none';
+        loadProducts();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+
+  function editProduct(id) {
+    const p = productsCache.find(x => x._id === id);
+    if (!p) return;
+    editingProductId = id;
+    document.getElementById('pd-form-title').textContent = 'Edit Product \u2014 ' + p.name;
+    document.getElementById('pd-productid').value = p.productId;
+    document.getElementById('pd-productid').disabled = true;
+    document.getElementById('pd-name').value = p.name || '';
+    document.getElementById('pd-price').value = p.price || 0;
+    document.getElementById('pd-type').value = p.type || 'limited';
+    document.getElementById('pd-data').value = p.dataAmount || '';
+    document.getElementById('pd-speed').value = p.speed || '';
+    document.getElementById('pd-ratelimit').value = p.rateLimit || '';
+    document.getElementById('pd-badge').value = p.badge || '';
+    document.getElementById('pd-features').value = (p.features || []).join(', ');
+
+    // Pick whichever unit shows the cleanest whole number for the existing
+    // duration, so editing doesn't show something like "0.0035" days.
+    const ms = p.durationMs || 0;
+    const minutes = ms / (60 * 1000), hours = ms / (60 * 60 * 1000), days = hours / 24;
+    if (hours < 1) { document.getElementById('pd-duration-unit').value = 'minutes'; document.getElementById('pd-duration').value = minutes; }
+    else if (days >= 1 && days % 1 === 0) { document.getElementById('pd-duration-unit').value = 'days'; document.getElementById('pd-duration').value = days; }
+    else { document.getElementById('pd-duration-unit').value = 'hours'; document.getElementById('pd-duration').value = hours; }
+
+    document.getElementById('pd-image-preview').src = p.imageBase64 || '';
+    document.getElementById('pd-image-preview').style.display = p.imageBase64 ? 'block' : 'none';
+    document.getElementById('pd-submit-btn').textContent = 'Save Changes';
+    document.getElementById('pd-cancel-btn').style.display = 'inline-block';
+    document.getElementById('pd-status').className = 'status'; document.getElementById('pd-status').textContent = '';
+    document.getElementById('tab-products').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function cancelEditProduct() {
+    editingProductId = null;
+    document.getElementById('pd-form-title').textContent = 'Add Product';
+    document.getElementById('pd-productid').disabled = false;
+    ['pd-productid','pd-name','pd-price','pd-duration','pd-badge','pd-features'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pd-data').value = 'Time-based';
+    document.getElementById('pd-speed').value = '15 Mbps';
+    document.getElementById('pd-ratelimit').value = '5M/5M';
+    document.getElementById('pd-type').value = 'limited';
+    document.getElementById('pd-duration-unit').value = 'hours';
+    document.getElementById('pd-image').value = '';
+    document.getElementById('pd-image-preview').style.display = 'none';
+    document.getElementById('pd-submit-btn').textContent = 'Add Product';
+    document.getElementById('pd-cancel-btn').style.display = 'none';
+    document.getElementById('pd-status').className = 'status'; document.getElementById('pd-status').textContent = '';
+  }
+
+  function toggleProductActive(id, makeActive) {
+    if (makeActive) {
+      fetch(API_BASE + '/api/admin/products/' + id, {
+        method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ active: true })
+      }).then(loadProducts);
+    } else {
+      if (!confirm('Deactivate this product? It will disappear from the customer portal immediately.')) return;
+      fetch(API_BASE + '/api/admin/products/' + id + '/deactivate', { method: 'POST', headers: authHeaders() }).then(loadProducts);
+    }
+  }
+  function deleteProduct(id, name) {
+    if (!confirm('Permanently delete "' + name + '"? This cannot be undone. Past vouchers/transactions for it are unaffected - this only removes it from the catalog so it can\'t be sold again.')) return;
+    fetch(API_BASE + '/api/admin/products/' + id, { method: 'DELETE', headers: authHeaders() })
+      .then(r => r.json()).then(data => { if (data.message) alert(data.message); loadProducts(); });
+  }
+  function recreateProfile(id) {
+    if (!confirm('Re-queue the router profile creation command for this product?\n\nUse this if vouchers for it are stuck "waiting" forever - that usually means the profile was never actually created on the router.')) return;
+    fetch(API_BASE + '/api/admin/products/' + id + '/recreate-profile', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => alert(data.message || 'Done.'));
+  }
+
+  function seedDefaultProducts() {
+    if (!confirm('Seed the 7 default packages? This only works if the catalog is currently empty.')) return;
+    fetch(API_BASE + '/api/admin/products/seed-defaults', { method: 'POST', headers: authHeaders() })
+      .then(r => r.json()).then(data => { alert(data.message); loadProducts(); })
+      .catch(() => alert('Network error.'));
+  }
+
+  // ---- Terminal ----
+  function termLog(line) {
+    const el = document.getElementById('term-console');
+    const stamp = new Date().toLocaleTimeString();
+    el.textContent += '\n[' + stamp + '] ' + line;
+    el.scrollTop = el.scrollHeight;
+  }
+  function sendTerminalCommand() {
+    const command = document.getElementById('term-command').value.trim();
+    const statusEl = document.getElementById('term-status'), btn = document.getElementById('term-send-btn');
+    if (!command) { statusEl.className = 'status error'; statusEl.textContent = 'Enter a command first.'; return; }
+    if (!confirm('Run this on your live router?\n\n' + command + '\n\nThis executes immediately - there is no undo.')) return;
+    btn.disabled = true; statusEl.className = 'status'; statusEl.textContent = 'Queued - waiting for router to pick it up (~5s)\u2026';
+    termLog('$ ' + command);
+    termLog('  queued, waiting for router to poll and claim it\u2026');
+    fetch(API_BASE + '/api/admin/terminal/execute', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ command })
+    }).then(r => r.json()).then(data => {
+      if (!data.id) {
+        statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed to queue.';
+        termLog('  ERROR: ' + (data.message || 'failed to queue command'));
+        btn.disabled = false; return;
+      }
+      document.getElementById('term-command').value = '';
+      pollTerminalResult(data.id, statusEl, btn);
+    }).catch(() => {
+      statusEl.className = 'status error'; statusEl.textContent = 'Network error.';
+      termLog('  ERROR: network error while queuing command.');
+      btn.disabled = false;
+    });
+  }
+  function pollTerminalResult(id, statusEl, btn) {
+    let attempts = 0;
+    const maxAttempts = 30; // ~60s - router polls /terminal/next roughly every 5s
+    const timer = setInterval(() => {
+      attempts++;
+      fetch(API_BASE + '/api/admin/terminal/history', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+        const row = rows.find(r => r._id === id);
+        if (!row) return; // history not yet reflecting it - keep waiting
+        if (row.status === 'claimed' && attempts === 1) {
+          termLog('  claimed by router, executing\u2026');
+        }
+        if (row.status !== 'pending' && row.status !== 'claimed') {
+          clearInterval(timer); btn.disabled = false;
+          statusEl.className = row.status === 'done' ? 'status ok' : 'status error';
+          statusEl.textContent = row.status === 'done' ? 'Command ran successfully.' : 'Command failed - check /log on the router.';
+          termLog(row.status === 'done' ? '  \u2713 done' : '  \u2717 error - check /log print on the router for detail');
+          loadTerminalHistory();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(timer); btn.disabled = false;
+          statusEl.className = 'status error';
+          statusEl.textContent = 'No response yet - confirm the terminal poll script is installed and running on the router.';
+          termLog('  \u26A0 no response after ' + (maxAttempts * 2) + 's - the command is still queued as "' + row.status + '". Check that the router\u2019s /terminal/next polling script is installed and running.');
+        }
+      }).catch(() => {});
+    }, 2000);
+  }
+  function loadTerminalHistory() {
+    fetch(API_BASE + '/api/admin/terminal/history', { headers: authHeaders() }).then(r => r.json()).then(rows => {
+      document.getElementById('term-history-body').innerHTML = rows.map(c => `
+        <tr><td style="font-family:monospace;">${c.command}</td><td>${badge(c.status === 'done' ? 'success' : (c.status === 'error' ? 'failed' : 'pending'))}</td>
+        <td>${c.requestedBy || ''}</td><td>${new Date(c.createdAt).toLocaleString()}</td></tr>`).join('');
+    }).catch(() => {});
+  }
+
+  function loadSettings() {
+    fetch(API_BASE + '/api/admin/settings', { headers: authHeaders() }).then(r => r.json()).then(s => {
+      document.getElementById('set-reminder-msg').value = s.reminderMessage || 'Your NETGHWiFi voucher expires soon. Buy another to stay connected!';
+      document.getElementById('set-maintenance-on').checked = !!s.maintenanceMode;
+      document.getElementById('set-maintenance-msg').value = s.maintenanceMessage || "We're down for maintenance right now. Please check back shortly.";
+      document.getElementById('set-ad-on').checked = s.adBannerEnabled !== false;
+      document.getElementById('set-announce-on').checked = s.announcementEnabled !== false;
+      const msgs = Array.isArray(s.announcementMessages) ? s.announcementMessages : [];
+      document.getElementById('set-announce-msgs').value = msgs.join('\n');
+    }).catch(() => {});
+  }
+  function saveSettings() {
+    const reminderMessage = document.getElementById('set-reminder-msg').value;
+    const statusEl = document.getElementById('settings-status');
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ reminderMessage })
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+
+  // ---- Maintenance mode / ad banner / announcement banner (login page) ----
+  // Each card saves ONLY its own key(s) via a targeted PATCH, so saving one
+  // card can never silently overwrite another's settings.
+  function saveMaintenanceSettings() {
+    const statusEl = document.getElementById('maintenance-settings-status');
+    const payload = {
+      maintenanceMode: document.getElementById('set-maintenance-on').checked,
+      maintenanceMessage: document.getElementById('set-maintenance-msg').value
+    };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+  function saveAdSettings() {
+    const statusEl = document.getElementById('ad-settings-status');
+    const payload = { adBannerEnabled: document.getElementById('set-ad-on').checked };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+
+  // ---- Ad banner image gallery ----
+  function loadAdBannerSlides() {
+    fetch(API_BASE + '/api/admin/ad-banner', { headers: authHeaders() }).then(r => r.json()).then(slides => {
+      document.getElementById('ad-banner-grid').innerHTML = (slides || []).map(s => `
+        <div class="product-card">
+          <img src="${API_BASE}/api/ad-banner/${s.id}/image">
+          <div class="p-meta" style="word-break:break-all;">${s.link ? s.link : '(no link)'}</div>
+          <button class="secondary" style="width:100%;" onclick="deleteAdBannerSlide('${s.id}')">Delete</button>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No images uploaded yet - the login page is using its built-in defaults.</p>';
+    }).catch(() => {});
+  }
+  function uploadAdBannerImage() {
+    const preview = document.getElementById('ab-image-preview');
+    const statusEl = document.getElementById('ab-upload-status');
+    const imageBase64 = preview.style.display !== 'none' ? preview.src : undefined;
+    if (!imageBase64) { statusEl.className = 'status error'; statusEl.textContent = 'Choose an image first.'; return; }
+    const link = document.getElementById('ab-link').value.trim();
+    const alt = document.getElementById('ab-alt').value.trim();
+    statusEl.className = 'status'; statusEl.textContent = 'Uploading\u2026';
+    fetch(API_BASE + '/api/admin/ad-banner', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ imageBase64, link, alt })
+    }).then(r => r.json()).then(data => {
+      if (data.id) {
+        statusEl.className = 'status ok'; statusEl.textContent = 'Uploaded.';
+        document.getElementById('ab-image').value = ''; preview.style.display = 'none';
+        document.getElementById('ab-link').value = ''; document.getElementById('ab-alt').value = '';
+        loadAdBannerSlides();
+      } else { statusEl.className = 'status error'; statusEl.textContent = data.message || 'Failed.'; }
+    }).catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Network error.'; });
+  }
+  function deleteAdBannerSlide(id) {
+    if (!confirm('Remove this banner image?')) return;
+    fetch(API_BASE + '/api/admin/ad-banner/' + id, { method: 'DELETE', headers: authHeaders() })
+      .then(() => loadAdBannerSlides());
+  }
+  function saveAnnouncementSettings() {
+    const statusEl = document.getElementById('announce-settings-status');
+    const announcementMessages = document.getElementById('set-announce-msgs').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    const payload = {
+      announcementEnabled: document.getElementById('set-announce-on').checked,
+      announcementMessages
+    };
+    statusEl.className = 'status'; statusEl.textContent = 'Saving\u2026';
+    fetch(API_BASE + '/api/admin/settings', {
+      method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload)
+    }).then(r => r.json()).then(() => { statusEl.className = 'status ok'; statusEl.textContent = 'Saved.'; })
+      .catch(() => { statusEl.className = 'status error'; statusEl.textContent = 'Failed.'; });
+  }
+</script>  <!-- Voucher / transaction detail modal -->
+  <!-- Generic detail modal (voucher details, API keys, etc.) -->
+  <div class="modal-overlay" id="voucher-modal" onclick="if(event.target===this)closeVoucherModal()">
+    <div class="modal-box">
+      <button class="modal-close-btn" onclick="closeVoucherModal()">&times;</button>
+      <h3 id="voucher-modal-title">Details</h3>
+      <div id="voucher-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Theme customizer -->
+  <div id="cust-overlay" onclick="closeCustomizer()"></div>
+  <aside id="cust-panel" role="dialog" aria-label="Theme customizer">
+    <div class="cust-head">
+      <div>
+        <h2>Customize</h2>
+        <p>Personalize the look &amp; feel</p>
+      </div>
+      <button class="cust-close-btn" onclick="closeCustomizer()" aria-label="Close">&times;</button>
+    </div>
+    <div class="cust-body">
+      <div class="cust-section">
+        <div class="cust-label">Theme</div>
+        <div class="cust-tabs" id="cust-theme-tabs">
+          <button type="button" class="cust-tab" data-mode="light" onclick="setThemeMode('light')">&#9728;&#65039; Light</button>
+          <button type="button" class="cust-tab" data-mode="dark" onclick="setThemeMode('dark')">&#127769; Dark</button>
+          <button type="button" class="cust-tab" data-mode="auto" onclick="setThemeMode('auto')">&#9881;&#65039; Auto</button>
+        </div>
+      </div>
+      <div class="cust-section">
+        <div class="cust-label">Accent color</div>
+        <div class="cust-swatches" id="cust-accent-swatches">
+          <button type="button" class="cust-swatch" data-accent="blue" title="Blue" style="background:#3badf0" onclick="setAccent('blue')"></button>
+          <button type="button" class="cust-swatch" data-accent="teal" title="Teal" style="background:#14b8a6" onclick="setAccent('teal')"></button>
+          <button type="button" class="cust-swatch" data-accent="violet" title="Violet" style="background:#8b5cf6" onclick="setAccent('violet')"></button>
+          <button type="button" class="cust-swatch" data-accent="rose" title="Rose" style="background:#f43f5e" onclick="setAccent('rose')"></button>
+          <button type="button" class="cust-swatch" data-accent="green" title="Green" style="background:#22c55e" onclick="setAccent('green')"></button>
+          <button type="button" class="cust-swatch" data-accent="amber" title="Amber" style="background:#f0a93b" onclick="setAccent('amber')"></button>
+        </div>
+      </div>
+      <div class="cust-section">
+        <div class="cust-label">Border radius</div>
+        <div class="cust-tabs" id="cust-radius-tabs">
+          <button type="button" class="cust-tab" data-radius="0px" onclick="setRadius('0px')">None</button>
+          <button type="button" class="cust-tab" data-radius="8px" onclick="setRadius('8px')">Small</button>
+          <button type="button" class="cust-tab" data-radius="14px" onclick="setRadius('14px')">Medium</button>
+          <button type="button" class="cust-tab" data-radius="22px" onclick="setRadius('22px')">Large</button>
+        </div>
+      </div>
+    </div>
+    <div class="cust-foot">
+      <button class="secondary cust-reset-btn" onclick="resetCustomizer()">Reset to defaults</button>
+    </div>
+  </aside>
+</body>
+</html>

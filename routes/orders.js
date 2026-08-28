@@ -109,20 +109,23 @@ router.get('/products', async (req, res) => {
 
 // --- 1. Create an order --------------------------------------------------
 // Initializes the Paystack transaction server-side (Initialize Transaction
-// API) and sends the customer to Paystack's hosted checkout page.
+// API), which hands back both an access_code (for the inline popup modal -
+// resumeTransaction on the frontend, no navigation away) and an
+// authorization_url (Paystack's hosted checkout page, used only as a
+// manual "having trouble?" fallback link - not an automatic redirect).
 //
-// Why redirect and not the inline modal: most customers reach this page via
-// their phone's automatic "Sign in to Wi-Fi network" popup, which is a
+// Why both: most customers use a real browser and the popup modal works
+// great for them - genuinely inline, no redirect. But some reach this page
+// via their phone's automatic "Sign in to Wi-Fi network" popup, which is a
 // locked-down system WebView (Android CaptivePortalLogin / iOS Captive
-// Network Assistant) - not a real browser tab. Those WebViews routinely
-// block the popup/iframe overlay Paystack's inline checkout needs, which is
-// why it was falling back to what looked like a redirect anyway, except
-// without a working way back: a real top-level navigation destroys this
-// page's JS, so nothing was left running to notice payment succeeded.
+// Network Assistant) that can block popup/iframe overlays entirely. For
+// those cases we keep a manual escape hatch to the hosted checkout page
+// rather than silently guessing and risking interrupting someone who's
+// mid-payment in a modal that's actually working fine.
 //
-// callback_url below sends the customer to our own /orders/:reference/return
-// page (self-hosted, so it works even in a restricted WebView) which
-// verifies payment and finishes the login - see that route below.
+// callback_url still points at our own /orders/:reference/return page (see
+// below) so that even the fallback path has a working way back, instead of
+// stranding the customer on Paystack's own generic success page.
 router.post('/orders', async (req, res) => {
   try {
     const { profile, phone, mac, ip } = req.body;
@@ -136,6 +139,7 @@ router.post('/orders', async (req, res) => {
     const amountKobo = product.price * 100;
     const callbackUrl = `${req.protocol}://${req.get('host')}/api/orders/${reference}/return`;
 
+    let accessCode = null;
     let authorizationUrl = null;
     try {
       const initRes = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -147,16 +151,17 @@ router.post('/orders', async (req, res) => {
         body: JSON.stringify({ email, amount: amountKobo, currency: 'GHS', reference, callback_url: callbackUrl })
       });
       const initData = await initRes.json();
-      if (initData?.status && initData?.data?.authorization_url) {
-        authorizationUrl = initData.data.authorization_url;
+      if (initData?.status && initData?.data?.access_code) {
+        accessCode = initData.data.access_code;
+        authorizationUrl = initData.data.authorization_url || null;
       } else {
-        console.error('Paystack initialize returned no authorization_url:', initData?.message || initData);
+        console.error('Paystack initialize returned no access_code:', initData?.message || initData);
       }
     } catch (err) {
       console.error('Paystack initialize failed:', err.message);
     }
 
-    if (!authorizationUrl) {
+    if (!accessCode) {
       return res.status(502).json({ message: 'Could not reach payment provider. Please try again.' });
     }
 
@@ -169,7 +174,7 @@ router.post('/orders', async (req, res) => {
       status: 'pending'
     });
 
-    res.json({ reference: tx.reference, amountKobo: tx.amountKobo, authorizationUrl });
+    res.json({ reference: tx.reference, amountKobo: tx.amountKobo, accessCode, authorizationUrl });
   } catch (err) {
     console.error('POST /orders failed:', err.message);
     res.status(500).json({ message: 'Could not create order' });

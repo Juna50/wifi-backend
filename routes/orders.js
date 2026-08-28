@@ -1,0 +1,656 @@
+const express = require('express');
+const router = express.Router();
+const crypto = require('crypto');
+const Transaction = require('../models/Transaction');
+const Product = require('../models/Product');
+const Settings = require('../models/Settings');
+const { sendSms } = require('../sms');
+const { msToRouterOSDuration, msToLabel } = require('../durationFormat');
+
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+function genRef() {
+  return 'ngw_' + crypto.randomBytes(8).toString('hex');
+}
+
+// --- Public site config, used by login.html --------------------------------
+// Lets the backend control maintenance mode, the ad banner, and the
+// announcement banner without editing/redeploying the static portal page.
+// Deliberately only exposes these few keys (not the full Settings
+// collection) since this endpoint is unauthenticated and hit by every
+// captive-portal page load.
+const SITE_CONFIG_DEFAULTS = {
+  maintenanceMode: false,
+  maintenanceMessage: "We're down for maintenance right now. Please check back shortly.",
+  adBannerEnabled: true,
+  announcementEnabled: true,
+  announcementMessages: [
+    '\uD83D\uDCCD For Enquires WhatsApp: 0545837116',
+    '\uD83D\uDCB8 Buy Normal Data, Airtime, Waec Checker & More',
+    '\u26A1 Fast delivery \u2022 Secure payments \u2022 24/7 support'
+  ]
+};
+const SITE_CONFIG_KEYS = Object.keys(SITE_CONFIG_DEFAULTS);
+
+router.get('/site-config', async (req, res) => {
+  try {
+    const rows = await Settings.find({ key: { $in: SITE_CONFIG_KEYS.concat(['adBannerSlides']) } });
+    const config = Object.assign({}, SITE_CONFIG_DEFAULTS, { adBannerSlides: [] });
+    rows.forEach(function (r) {
+      if (r.key === 'adBannerSlides') {
+        const slides = Array.isArray(r.value) ? r.value : [];
+        // Only send the lightweight bits (id/link/alt) - the actual image
+        // bytes are fetched separately per-slide via /ad-banner/:id/image so
+        // browsers can cache each one instead of re-downloading base64 with
+        // every single site-config call.
+        config.adBannerSlides = slides
+          .slice()
+          .sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); })
+          .map(function (s) { return { id: s.id, link: s.link || '', alt: s.alt || 'Ad' }; });
+        return;
+      }
+      if (r.value !== undefined && r.value !== null) config[r.key] = r.value;
+    });
+    res.json(config);
+  } catch (err) {
+    console.error('GET /site-config failed:', err.message);
+    // Fail open with safe defaults - a portal page should never be stuck
+    // unable to render just because this lookup had a hiccup.
+    res.json(Object.assign({}, SITE_CONFIG_DEFAULTS, { adBannerSlides: [] }));
+  }
+});
+
+// Serves one uploaded ad banner image by id. Public (no auth) and cacheable
+// since it's just an image the portal page shows to everyone anyway.
+router.get('/ad-banner/:id/image', async (req, res) => {
+  try {
+    const row = await Settings.findOne({ key: 'adBannerSlides' });
+    const slides = Array.isArray(row && row.value) ? row.value : [];
+    const slide = slides.find(function (s) { return s.id === req.params.id; });
+    if (!slide || !slide.imageBase64) return res.status(404).send('Not found');
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(slide.imageBase64);
+    if (!match) return res.status(415).send('Unsupported image format');
+    res.set('Content-Type', match[1]);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(match[2], 'base64'));
+  } catch (err) {
+    console.error('GET /ad-banner/:id/image failed:', err.message);
+    res.status(500).send('Error');
+  }
+});
+
+async function notifyVoucherReady(tx) {
+  if (tx.smsSent) return;
+  const product = await Product.findOne({ productId: tx.packageId });
+  const hours = product ? msToLabel(product.durationMs) : '';
+  const message = `NETGHWiFi\nCode: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nEnjoy!`;
+  const sent = await sendSms(tx.phone, message);
+  if (sent) {
+    tx.smsSent = true;
+    await tx.save();
+  }
+}
+
+// --- Public product catalog, used by login.html ---------------------------
+// Lightweight on purpose - no image data - since the captive portal loads
+// this on every single connection through the walled garden. Full product
+// data (with images) is at /admin/products for the panel.
+router.get('/products', async (req, res) => {
+  try {
+    const products = await Product.find({ active: true })
+      .sort({ sortOrder: 1, createdAt: 1 })
+      .select('productId name category price durationMs isTrial dataAmount speed badge features type');
+    res.json(products);
+  } catch (err) {
+    console.error('GET /products failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+// --- 1. Create an order --------------------------------------------------
+// Initializes the Paystack transaction server-side (Initialize Transaction
+// API) and sends the customer to Paystack's hosted checkout page.
+//
+// Why redirect and not the inline modal: most customers reach this page via
+// their phone's automatic "Sign in to Wi-Fi network" popup, which is a
+// locked-down system WebView (Android CaptivePortalLogin / iOS Captive
+// Network Assistant) - not a real browser tab. Those WebViews routinely
+// block the popup/iframe overlay Paystack's inline checkout needs, which is
+// why it was falling back to what looked like a redirect anyway, except
+// without a working way back: a real top-level navigation destroys this
+// page's JS, so nothing was left running to notice payment succeeded.
+//
+// callback_url below sends the customer to our own /orders/:reference/return
+// page (self-hosted, so it works even in a restricted WebView) which
+// verifies payment and finishes the login - see that route below.
+router.post('/orders', async (req, res) => {
+  try {
+    const { profile, phone, mac, ip } = req.body;
+    const product = await Product.findOne({ productId: profile, active: true });
+    if (!product || !phone) {
+      return res.status(400).json({ message: 'Invalid package or missing phone' });
+    }
+
+    const reference = genRef();
+    const email = `guest+${reference}@netghwifi.com`;
+    const amountKobo = product.price * 100;
+    const callbackUrl = `${req.protocol}://${req.get('host')}/api/orders/${reference}/return`;
+
+    let authorizationUrl = null;
+    try {
+      const initRes = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, amount: amountKobo, currency: 'GHS', reference, callback_url: callbackUrl })
+      });
+      const initData = await initRes.json();
+      if (initData?.status && initData?.data?.authorization_url) {
+        authorizationUrl = initData.data.authorization_url;
+      } else {
+        console.error('Paystack initialize returned no authorization_url:', initData?.message || initData);
+      }
+    } catch (err) {
+      console.error('Paystack initialize failed:', err.message);
+    }
+
+    if (!authorizationUrl) {
+      return res.status(502).json({ message: 'Could not reach payment provider. Please try again.' });
+    }
+
+    const tx = await Transaction.create({
+      reference,
+      packageId: profile,
+      phone,
+      email,
+      amountKobo,
+      status: 'pending'
+    });
+
+    res.json({ reference: tx.reference, amountKobo: tx.amountKobo, authorizationUrl });
+  } catch (err) {
+    console.error('POST /orders failed:', err.message);
+    res.status(500).json({ message: 'Could not create order' });
+  }
+});
+
+// --- 1b. Where Paystack sends the customer back after checkout -----------
+// Self-hosted (not on the router) so it works even inside the restricted
+// captive-portal WebView that destroyed login.html's JS on redirect. This
+// page re-verifies payment, waits for the router to fulfil the voucher (via
+// the same polling the original page did), then completes the hotspot
+// login itself with a direct POST to the router's login endpoint - PAP mode
+// doesn't require the router-templated chap-id/link-login-only values
+// login.html normally gets, just username+password, so this works fine
+// from a page hosted off-router.
+router.get('/orders/:reference/return', async (req, res) => {
+  res.set('Content-Type', 'text/html');
+  res.send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>NETGHWiFi - Finishing up</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#0b0e13; color:#eef2f6; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:20px; }
+  .card { width:100%; max-width:360px; background:#151a23; border:1px solid #262e3a; border-radius:16px;
+    padding:28px 24px; text-align:center; }
+  h1 { font-size:18px; margin:0 0 6px; }
+  p { color:#94a3b5; font-size:14px; margin:0 0 20px; line-height:1.5; }
+  .spinner { display:inline-block; width:34px; height:34px; border:3px solid #262e3a; border-top-color:#3badf0;
+    border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .status { font-size:14px; min-height:20px; }
+  .status.error { color:#e5504a; }
+  .status.success { color:#2ecc71; }
+  .voucher-box { margin-top:18px; padding:14px; border:1px dashed #3badf0; border-radius:10px; display:none; }
+  .voucher-code { font-size:22px; font-weight:700; letter-spacing:1px; color:#3badf0; margin:6px 0; }
+  .btn { display:inline-block; margin-top:14px; background:linear-gradient(135deg,#3badf0,#1b7fb0); color:#fff;
+    border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:14px; text-decoration:none; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1>NETGHWiFi</h1>
+    <p id="msg">Confirming your payment&hellip;</p>
+    <div class="status" id="status"></div>
+    <div class="voucher-box" id="voucher-box">
+      <div style="font-size:13px;color:#94a3b5;">Your voucher code</div>
+      <div class="voucher-code" id="voucher-code"></div>
+      <div style="font-size:13px;color:#94a3b5;">Use this as both Username and Password</div>
+      <a class="btn" id="continue-btn" href="http://netgh.wifi/status">I'm connected - Continue</a>
+    </div>
+  </div>
+
+  <!-- Auto-login attempt happens inside this hidden iframe, never on the
+       visible page itself - if it fails (wrong network, DNS hiccup, etc)
+       the voucher code above stays on screen instead of the customer
+       landing on a raw browser connection-error page. -->
+  <iframe name="silent-login-frame" style="display:none" title="connecting"></iframe>
+  <form id="login-form" action="http://netgh.wifi/login" method="post" target="silent-login-frame" style="display:none">
+    <input type="hidden" name="username" id="lf-username" />
+    <input type="hidden" name="password" id="lf-password" />
+  </form>
+
+  <script>
+    var reference = ${JSON.stringify(req.params.reference)};
+    var apiBase = window.location.origin;
+    var attempts = 0;
+
+    function setMsg(text) { document.getElementById('msg').textContent = text; }
+    function setStatus(text, cls) {
+      var el = document.getElementById('status');
+      el.textContent = text || '';
+      el.className = 'status' + (cls ? ' ' + cls : '');
+    }
+    function showVoucher(username) {
+      document.getElementById('spinner').style.display = 'none';
+      setMsg('Payment successful!');
+      document.getElementById('voucher-code').textContent = username;
+      document.getElementById('voucher-box').style.display = 'block';
+    }
+
+    function attemptDirectLogin(username, password) {
+      // PAP mode - the router accepts a plain username+password POST to
+      // /login with no chap-id/challenge needed. This runs inside the
+      // hidden iframe (see the form's target= attribute) so if it fails,
+      // the visible page - showing the voucher code and a manual Continue
+      // link - is completely unaffected. Best-effort convenience, not the
+      // thing the customer has to depend on.
+      try {
+        document.getElementById('lf-username').value = username;
+        document.getElementById('lf-password').value = password;
+        document.getElementById('login-form').submit();
+      } catch (e) {}
+    }
+
+    function poll() {
+      attempts++;
+      fetch(apiBase + '/api/orders/' + reference + '/status')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.status === 'success' && d.hotspotUsername) {
+            showVoucher(d.hotspotUsername);
+            attemptDirectLogin(d.hotspotUsername, d.hotspotPassword);
+          } else if (d.status === 'failed') {
+            document.getElementById('spinner').style.display = 'none';
+            setMsg('Payment was not successful.');
+            setStatus('If you were charged, contact support with reference ' + reference, 'error');
+          } else if (attempts < 40) {
+            setTimeout(poll, 2500);
+          } else {
+            document.getElementById('spinner').style.display = 'none';
+            setMsg('Still setting up your voucher.');
+            setStatus('This is taking longer than usual - keep this tab open, or check status at netgh.wifi/status', 'error');
+            setTimeout(poll, 5000);
+          }
+        })
+        .catch(function () { setTimeout(poll, 3000); });
+    }
+
+    // Confirm once (server-side re-verify against Paystack), then start polling.
+    fetch(apiBase + '/api/orders/' + reference + '/confirm', { method: 'POST' })
+      .catch(function () {})
+      .then(poll);
+  </script>
+</body>
+</html>`);
+});
+
+// --- 2. Client says "I paid" -> we independently verify with Paystack ---
+router.post('/orders/:reference/confirm', async (req, res) => {
+  try {
+    const tx = await Transaction.findOne({ reference: req.params.reference });
+    if (!tx) return res.status(404).json({ message: 'Unknown reference' });
+    if (tx.status === 'success') return res.json({ status: 'success' });
+
+    try {
+      const verifyRes = await fetch(
+        `https://api.paystack.co/transaction/verify/${tx.reference}`,
+        { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+      );
+      const verifyData = await verifyRes.json();
+
+      if (verifyData?.data?.status === 'success' &&
+        verifyData.data.amount === tx.amountKobo) {
+        tx.status = 'success';
+        await tx.save();
+      } else if (verifyData?.data?.status === 'failed') {
+        tx.status = 'failed';
+        await tx.save();
+      }
+      // if still "abandoned"/"pending" on Paystack's side, leave tx.status as pending and let the client keep polling
+    } catch (err) {
+      console.error('Paystack verify failed:', err.message);
+    }
+
+    res.json({ status: tx.status });
+  } catch (err) {
+    console.error('POST /orders/:reference/confirm failed:', err.message);
+    res.status(500).json({ message: 'Could not confirm order' });
+  }
+});
+
+// --- 3. Client polls for its own voucher ---------------------------------
+router.get('/orders/:reference/status', async (req, res) => {
+  try {
+    const tx = await Transaction.findOne({ reference: req.params.reference });
+    if (!tx) return res.status(404).json({ status: 'unknown' });
+
+    if (tx.synced && tx.hotspotUsername) {
+      return res.json({
+        status: 'success',
+        hotspotUsername: tx.hotspotUsername,
+        hotspotPassword: tx.hotspotPassword
+      });
+    }
+    res.json({ status: tx.status === 'failed' ? 'failed' : 'pending' });
+  } catch (err) {
+    console.error('GET /orders/:reference/status failed:', err.message);
+    res.status(500).json({ status: 'error' });
+  }
+});
+
+// --- 4. Paystack webhook (belt-and-suspenders alongside /confirm) -------
+router.post('/webhooks/paystack', async (req, res) => {
+  try {
+    const hash = crypto
+      .createHmac('sha512', PAYSTACK_SECRET_KEY)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+    if (hash !== req.headers['x-paystack-signature']) return res.sendStatus(401);
+
+    const event = req.body;
+    if (event.event === 'charge.success') {
+      const tx = await Transaction.findOne({ reference: event.data.reference });
+      if (tx && tx.status !== 'success') {
+        tx.status = 'success';
+        await tx.save();
+      }
+    }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('POST /webhooks/paystack failed:', err.message);
+    res.sendStatus(500);
+  }
+});
+
+// --- 5. Free trial, one per phone/MAC ------------------------------------
+router.post('/orders/trial', async (req, res) => {
+  try {
+    const { phone, mac } = req.body;
+    if (!phone) return res.status(400).json({ message: 'Phone number required' });
+
+    // Look up whichever product is actually marked as the trial package,
+    // rather than assuming its productId is literally "test" - that was
+    // the bug behind trials silently running the 5-hour fallback duration:
+    // if no product exists with that exact id (e.g. it was renamed or
+    // recreated from the admin panel), the duration lookup below would
+    // find nothing and fall back to a default meant for emergencies only.
+    const trialProduct = await Product.findOne({ isTrial: true, active: true }).sort({ sortOrder: 1 });
+    if (!trialProduct) {
+      return res.status(400).json({ message: 'No trial package is currently available.' });
+    }
+
+    const existing = await Transaction.findOne({
+      packageId: trialProduct.productId,
+      $or: [{ phone }, { hotspotUsername: mac }]
+    });
+    if (existing) {
+      return res.status(200).json({ message: 'Trial already used on this device.' });
+    }
+
+    const reference = genRef();
+    const tx = await Transaction.create({
+      reference,
+      packageId: trialProduct.productId,
+      phone,
+      amountKobo: 0,
+      status: 'success' // trials skip payment entirely
+    });
+    res.json({ reference: tx.reference });
+  } catch (err) {
+    console.error('POST /orders/trial failed:', err.message);
+    res.status(500).json({ message: 'Could not start trial' });
+  }
+});
+
+// --- 6. Router polling script: fetch work queue --------------------------
+// STALE_CLAIM_MS: if an order was claimed (dispatched=true) but never
+// actually confirmed fulfilled (synced=true) within this window, treat it
+// as abandoned and make it claimable again. Without this, any hiccup on the
+// router's side while creating the hotspot user (most commonly: the
+// matching hotspot profile doesn't exist yet) permanently strands the
+// order - it was already marked "claimed" before the router attempted the
+// actual creation, so a one-off failure there had no way to ever retry.
+const STALE_CLAIM_MS = 90 * 1000;
+
+router.get('/pending', async (req, res) => {
+  try {
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const pending = await Transaction.find({
+      status: 'success',
+      synced: { $ne: true },
+      $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }]
+    })
+      .select('reference packageId phone')
+      .limit(50);
+    res.json(pending);
+  } catch (err) {
+    console.error('GET /pending failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+// --- 6b. Router polling script: claim ONE order at a time ----------------
+// RouterOS scripting can't easily walk a JSON array, so this atomically
+// hands back a single pending order (flat fields, easy to string-parse)
+// and immediately marks it dispatched so a second poll never double-claims
+// the same order. If two people place orders in the same poll interval,
+// the router just calls this again right after.
+router.post('/orders/claim-next', async (req, res) => {
+  try {
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const tx = await Transaction.findOneAndUpdate(
+      { status: 'success', synced: { $ne: true }, $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }] },
+      { $set: { dispatched: true, dispatchedAt: new Date() } },
+      { new: true }
+    );
+    if (!tx) return res.json({ found: false });
+
+    const product = await Product.findOne({ productId: tx.packageId });
+    if (!product) {
+      console.warn(`claim-next: no Product found for packageId "${tx.packageId}" (reference ${tx.reference}) - falling back to 5h default. Check the product wasn't renamed/deleted.`);
+    }
+    const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00'; // safe fallback if a product was deleted after being sold
+
+    // The hotspot username shown back to the customer on the router's status
+    // page - computed here (not left to the router to derive from the raw
+    // reference) so trial sessions can get a recognizable "trial-xxxx" name
+    // instead of an opaque hex code that looks identical to a paid voucher.
+    const codeBase = tx.reference.slice(4, 12);
+    const hotspotUsername = (product && product.isTrial) ? ('trial-' + codeBase) : codeBase;
+
+    res.json({ found: true, reference: tx.reference, packageId: tx.packageId, phone: tx.phone, uptimeLimit, hotspotUsername });
+  } catch (err) {
+    console.error('POST /orders/claim-next failed:', err.message);
+    res.status(500).json({ found: false });
+  }
+});
+
+// --- 6c. Router polling script: claim a WHOLE BATCH of pending orders at
+// once (up to 50), instead of one at a time. This is what makes fulfilling
+// a big batch of admin-generated vouchers fast: claim-next makes the router
+// do one claim + one dispatched-report round trip PER voucher; this makes
+// it one claim call for the whole batch, then one dispatched-batch call at
+// the end. Returns plain pipe-delimited lines (not JSON) since that's what
+// RouterOS scripting can parse without a JSON-array walker:
+//   reference|packageId|uptimeLimit
+//   reference|packageId|uptimeLimit
+router.post('/orders/claim-batch', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt((req.body && req.body.limit) || 50, 10) || 50, 50);
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const pending = await Transaction.find({
+      status: 'success',
+      synced: { $ne: true },
+      $or: [{ dispatched: false }, { dispatchedAt: { $lt: staleBefore } }]
+    })
+      .select('_id reference packageId')
+      .limit(limit);
+    if (!pending.length) return res.type('text/plain').send('');
+
+    const ids = pending.map(function (tx) { return tx._id; });
+    await Transaction.updateMany({ _id: { $in: ids } }, { $set: { dispatched: true, dispatchedAt: new Date() } });
+
+    const packageIds = [...new Set(pending.map(function (tx) { return tx.packageId; }))];
+    const products = await Product.find({ productId: { $in: packageIds } });
+    const productMap = {};
+    products.forEach(function (p) { productMap[p.productId] = p; });
+
+    const lines = pending.map(function (tx) {
+      const product = productMap[tx.packageId];
+      if (!product) {
+        console.warn(`claim-batch: no Product found for packageId "${tx.packageId}" (reference ${tx.reference}) - falling back to 5h default. Check the product wasn't renamed/deleted.`);
+      }
+      const uptimeLimit = product ? msToRouterOSDuration(product.durationMs) : '05:00:00';
+      // Same recognizable "trial-xxxx" naming as claim-next, computed here
+      // rather than left to the router to derive from the raw reference.
+      const codeBase = String(tx.reference).slice(4, 12);
+      const hotspotUsername = (product && product.isTrial) ? ('trial-' + codeBase) : codeBase;
+      // Product IDs/references shouldn't ever contain "|" - guard anyway so
+      // one bad record can't corrupt the delimited line for the router.
+      const safeRef = String(tx.reference).replace(/\|/g, '');
+      const safePkg = String(tx.packageId || '').replace(/\|/g, '');
+      return safeRef + '|' + safePkg + '|' + uptimeLimit + '|' + hotspotUsername;
+    });
+    res.type('text/plain').send(lines.join('\n'));
+  } catch (err) {
+    console.error('POST /orders/claim-batch failed:', err.message);
+    res.status(500).type('text/plain').send('');
+  }
+});
+
+// --- 7b. Router polling script: report a WHOLE BATCH of hotspot users
+// created, in one call, instead of one /dispatched call per voucher.
+router.post('/orders/dispatched-batch', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+    let updated = 0;
+    for (const item of items) {
+      if (!item || !item.reference) continue;
+      const tx = await Transaction.findOne({ reference: item.reference });
+      if (!tx) continue;
+      tx.dispatched = true;
+      tx.dispatchedAt = tx.dispatchedAt || new Date();
+      tx.synced = true;
+      tx.hotspotUsername = item.hotspotUsername;
+      tx.hotspotPassword = item.hotspotPassword;
+      await tx.save();
+      updated++;
+      notifyVoucherReady(tx).catch(function (err) { console.error('SMS notify failed:', err.message); });
+    }
+    res.json({ ok: true, updated });
+  } catch (err) {
+    console.error('POST /orders/dispatched-batch failed:', err.message);
+    res.status(500).json({ message: 'Could not save batch' });
+  }
+});
+
+
+router.post('/orders/:reference/dispatched', async (req, res) => {
+  try {
+    const { hotspotUsername, hotspotPassword } = req.body;
+    const tx = await Transaction.findOne({ reference: req.params.reference });
+    if (!tx) return res.status(404).json({ message: 'Unknown reference' });
+
+    tx.dispatched = true;
+    tx.dispatchedAt = new Date();
+    tx.synced = true;
+    tx.hotspotUsername = hotspotUsername;
+    tx.hotspotPassword = hotspotPassword;
+    await tx.save();
+
+    notifyVoucherReady(tx).catch(err => console.error('SMS notify failed:', err.message));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /orders/:reference/dispatched failed:', err.message);
+    res.status(500).json({ message: 'Could not mark dispatched' });
+  }
+});
+
+// --- 8. Voucher recovery: resend the most recent voucher by phone --------
+router.post('/vouchers/recover', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ message: 'Phone number required' });
+
+    const tx = await Transaction.findOne({ phone, hotspotUsername: { $ne: null } })
+      .sort({ createdAt: -1 });
+
+    if (tx && tx.hotspotUsername) {
+      const product = await Product.findOne({ productId: tx.packageId });
+      const hours = product ? msToLabel(product.durationMs) : '';
+      const message = `NETGHWiFi\nRecovered Code: ${tx.hotspotUsername} (use as Username & Password)\nValid: ${hours}\nConnect to NETGHWiFi WiFi, then open:\nhttp://netgh.wifi/status\nKeep it safe!`;
+      await sendSms(phone, message).catch(err => console.error('recover SMS failed:', err.message));
+    }
+
+    // Same response whether or not anything was found - don't let someone
+    // use this to probe which phone numbers have bought vouchers.
+    res.json({ message: "If we have a voucher on file for this number, we've just sent it by SMS." });
+  } catch (err) {
+    console.error('POST /vouchers/recover failed:', err.message);
+    res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// --- 9. Calendar expiry sweep: what's past its validity window ----------
+router.get('/orders/expired', async (req, res) => {
+  try {
+    const now = Date.now();
+    const candidates = await Transaction.find({
+      synced: true,
+      expired: false,
+      hotspotUsername: { $ne: null }
+    }).select('reference hotspotUsername packageId createdAt');
+
+    const products = await Product.find({}).select('productId durationMs');
+    const durationMap = {};
+    products.forEach(p => { durationMap[p.productId] = p.durationMs; });
+
+    const toExpire = candidates
+      .filter(tx => {
+        const durationMs = durationMap[tx.packageId];
+        if (!durationMs) return false;
+        return (now - tx.createdAt.getTime()) > durationMs;
+      })
+      .map(tx => ({ reference: tx.reference, hotspotUsername: tx.hotspotUsername }));
+
+    res.json(toExpire);
+  } catch (err) {
+    console.error('GET /orders/expired failed:', err.message);
+    res.status(500).json([]);
+  }
+});
+
+// --- 10. Router confirms it disabled an expired voucher -------------------
+router.post('/orders/:reference/expired', async (req, res) => {
+  try {
+    const tx = await Transaction.findOne({ reference: req.params.reference });
+    if (!tx) return res.status(404).json({ message: 'Unknown reference' });
+    tx.expired = true;
+    await tx.save();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /orders/:reference/expired failed:', err.message);
+    res.status(500).json({ message: 'Could not mark expired' });
+  }
+});
+
+module.exports = router;
